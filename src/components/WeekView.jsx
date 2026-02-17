@@ -99,6 +99,20 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     }
   }
 
+  async function handleUncompleteTask(task) {
+    if (!currentUser) return
+    
+    const { error } = await supabase
+      .from('completed_tasks')
+      .delete()
+      .eq('task_id', task.id)
+      .eq('user_id', currentUser.id)
+    
+    if (!error) {
+      loadCompletedTasks()
+    }
+  }
+
   function getWeekNumber(date) {
     const d = new Date(date)
     d.setHours(0, 0, 0, 0)
@@ -186,6 +200,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                       task={task}
                       isCompleted={isTaskCompleted(task.id)}
                       onComplete={() => handleCompleteTask(task)}
+                      onUncomplete={() => handleUncompleteTask(task)}
                       users={users}
                       isToday={isToday}
                       presentationMode={true}
@@ -309,6 +324,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
               task={task}
               isCompleted={isTaskCompleted(task.id)}
               onComplete={() => handleCompleteTask(task)}
+              onUncomplete={() => handleUncompleteTask(task)}
               users={users}
               isToday={activeDay === currentDayIndex && currentWeekOffset === 0}
               presentationMode={false}

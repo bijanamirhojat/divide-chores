@@ -1,4 +1,4 @@
-export default function TaskItem({ task, isCompleted, onComplete, users, isToday, presentationMode }) {
+export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, users, isToday, presentationMode }) {
   const assignee = task.is_both 
     ? 'Samen' 
     : users.find(u => u.id === task.assigned_to)?.name || 'Niemand'
@@ -20,9 +20,12 @@ export default function TaskItem({ task, isCompleted, onComplete, users, isToday
         <button
           onClick={(e) => {
             e.stopPropagation()
-            if (!isCompleted) onComplete()
+            if (isCompleted) {
+              onUncomplete()
+            } else {
+              onComplete()
+            }
           }}
-          disabled={isCompleted}
           className={`mt-1 w-5 h-5 rounded-full border-2 flex-shrink-0 transition-all ${
             isCompleted 
               ? 'bg-emerald-500 border-emerald-500' 
