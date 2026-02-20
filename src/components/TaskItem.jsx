@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
-export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, onEdit, onDelete, users, isToday, presentationMode }) {
+export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, onEdit, onDelete, onDeleteAttempt, users, isToday, presentationMode, resetKey }) {
   const assignee = task.is_both 
     ? 'Samen' 
     : users.find(u => u.id === task.assigned_to)?.name || 'Niemand'
@@ -13,22 +13,12 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
 
   const config = assigneeConfig[assignee] || { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-500', dot: 'bg-gray-400' }
 
-  if (presentationMode) {
-    return (
-      <div className={`flex items-center gap-2 p-2 rounded-lg ${isCompleted ? 'opacity-50' : 'opacity-100'}`}>
-        <div className={`flex-1 min-w-0`}>
-          <p className={`font-medium text-sm leading-tight whitespace-normal ${isCompleted ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-            {task.title}
-          </p>
-        </div>
-
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${config.dot}`} title={assignee} />
-      </div>
-    )
-  }
-
   const [swipeX, setSwipeX] = useState(0)
   const touchStartX = useRef(null)
+
+  useEffect(() => {
+    setSwipeX(0)
+  }, [resetKey])
 
   function handleTouchStart(e) {
     touchStartX.current = e.touches[0].clientX
@@ -44,6 +34,7 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
 
   function handleTouchEnd() {
     if (swipeX < -60 && onDelete) {
+      onDeleteAttempt?.()
       onDelete()
     } else if (swipeX < -30) {
       setSwipeX(-80)

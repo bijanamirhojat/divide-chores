@@ -15,6 +15,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const [editTask, setEditTask] = useState(null)
   const [filter, setFilter] = useState('all')
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
+  const [resetKey, setResetKey] = useState(0)
 
   const today = new Date()
   const currentDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1
@@ -131,7 +132,10 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   }
 
   async function handleDeleteTask(task) {
-    if (!confirm('Weet je zeker dat je deze taak wilt verwijderen?')) return
+    if (!confirm('Weet je zeker dat je deze taak wilt verwijderen?')) {
+      loadTasks()
+      return
+    }
     
     const { error } = await supabase
       .from('tasks')
@@ -454,9 +458,11 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                 setShowModal(true)
               }}
               onDelete={() => handleDeleteTask(task)}
+              onDeleteAttempt={() => setResetKey(k => k + 1)}
               users={users}
               isToday={activeDay === currentDayIndex && currentWeekOffset === 0}
               presentationMode={false}
+              resetKey={resetKey}
             />
           ))}
           {getTasksForDay(activeDay).length === 0 && (
