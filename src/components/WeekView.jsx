@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import TaskItem from './TaskItem'
 import TaskModal from './TaskModal'
-import MealModal from './MealModal'
 
 const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
 const DAY_NAMES = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
@@ -13,7 +12,6 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const [meals, setMeals] = useState([])
   const [selectedDay, setSelectedDay] = useState(null)
   const [showModal, setShowModal] = useState(false)
-  const [showMealModal, setShowMealModal] = useState(false)
   const [editTask, setEditTask] = useState(null)
   const [filter, setFilter] = useState('all')
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
@@ -423,6 +421,29 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
             </span>
           )}
         </div>
+
+        {getMealsForDay(activeDay).length > 0 && (
+          <div className="mb-6">
+            <div className="space-y-2">
+              {getMealsForDay(activeDay).map(meal => (
+                <div key={meal.id} className="flex items-center justify-between bg-pastel-peach/30 rounded-xl p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
+                    <span className="text-gray-700">{meal.meal_name}</span>
+                  </div>
+                  <button 
+                    onClick={() => deleteMeal(meal.id)}
+                    className="text-gray-400 hover:text-red-400 p-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         <div className="space-y-3">
           {getTasksForDay(activeDay).map(task => (
@@ -453,45 +474,6 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
             </div>
           )}
         </div>
-
-        <div className="mt-8">
-          {getMealsForDay(activeDay).length > 0 && (
-            <>
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Eten</h2>
-              <div className="space-y-2 mb-4">
-                {getMealsForDay(activeDay).map(meal => (
-                  <div key={meal.id} className="flex items-center justify-between bg-pastel-peach/30 rounded-xl p-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
-                      <span className="text-gray-700">{meal.meal_name}</span>
-                    </div>
-                    <button 
-                      onClick={() => deleteMeal(meal.id)}
-                      className="text-gray-400 hover:text-red-400 p-1"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-          
-          <button
-            onClick={() => {
-              setSelectedDay(activeDay)
-              setShowMealModal(true)
-            }}
-            className="w-full py-3 bg-pastel-peach/30 text-gray-600 rounded-xl font-medium text-sm hover:bg-pastel-peach/50 transition-colors flex items-center justify-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Eten toevoegen
-          </button>
-        </div>
       </div>
 
       <button
@@ -519,18 +501,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
           currentUser={currentUser}
           onTaskCreated={loadTasks}
           editTask={editTask}
-        />
-      )}
-
-      {showMealModal && (
-        <MealModal
-          dayIndex={selectedDay ?? activeDay}
-          dayName={DAY_NAMES[selectedDay ?? activeDay]}
-          onClose={() => {
-            setShowMealModal(false)
-            setSelectedDay(null)
-          }}
-          onMealAdded={(name, type) => addMeal(selectedDay ?? activeDay, name, type)}
+          onMealAdded={(name, type) => addMeal(editTask?.day_of_week ?? selectedDay ?? activeDay, name, type)}
         />
       )}
     </div>
