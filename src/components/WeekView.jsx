@@ -131,6 +131,19 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     }
   }
 
+  async function handleDeleteTask(task) {
+    if (!confirm('Weet je zeker dat je deze taak wilt verwijderen?')) return
+    
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', task.id)
+    
+    if (!error) {
+      loadTasks()
+    }
+  }
+
   function getWeekNumber(date) {
     const d = new Date(date)
     d.setHours(0, 0, 0, 0)
@@ -323,7 +336,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
   return (
     <div 
-      className="min-h-screen bg-pastel-cream"
+      className="min-h-screen bg-pastel-cream overflow-x-hidden"
       onTouchStart={handleSwipeStart}
       onTouchEnd={handleSwipeEnd}
     >
@@ -462,6 +475,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                 setEditTask(t)
                 setShowModal(true)
               }}
+              onDelete={() => handleDeleteTask(task)}
               users={users}
               isToday={activeDay === currentDayIndex && currentWeekOffset === 0}
               presentationMode={false}
