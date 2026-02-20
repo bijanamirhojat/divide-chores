@@ -213,16 +213,16 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
   if (presentationMode) {
     return (
-      <div className="min-h-screen p-6 bg-pastel-cream">
-        <div className="flex items-center justify-between mb-8">
-          <button onClick={onOpenMenu} className="p-3 rounded-xl hover:bg-white/50 transition-colors">
-            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="h-screen p-4 bg-pastel-cream overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={onOpenMenu} className="p-2 rounded-xl hover:bg-white/50 transition-colors">
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
           
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-800">Divide/Chores</h1>
+            <h1 className="text-xl font-bold text-gray-800">Divide/Chores</h1>
             <div className="flex items-center justify-center gap-2 mt-1">
               <button 
                 onClick={() => setCurrentWeekOffset(prev => prev - 1)}
@@ -232,7 +232,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <p className="text-gray-500 text-sm">{getWeekRange()}</p>
+              <p className="text-gray-500 text-xs">{getWeekRange()}</p>
               <button 
                 onClick={() => setCurrentWeekOffset(prev => prev + 1)}
                 className="p-1 hover:bg-white/50 rounded"
@@ -243,39 +243,46 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
               </button>
             </div>
             {currentWeekOffset === 0 && (
-              <p className="text-accent-mint text-sm font-medium mt-1">Vandaag: {DAY_NAMES[currentDayIndex]}</p>
+              <p className="text-accent-mint text-xs font-medium mt-1">Vandaag: {DAY_NAMES[currentDayIndex]}</p>
             )}
           </div>
           
-          <button onClick={onTogglePresentation} className="p-3 rounded-xl hover:bg-white/50 transition-colors" title="Presentatie modus">
-            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button onClick={onTogglePresentation} className="p-2 rounded-xl hover:bg-white/50 transition-colors" title="Presentatie modus">
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </button>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex-1 flex gap-2 overflow-hidden">
           {DAYS.map((day, i) => {
             const dayTasks = getTasksForDay(i)
+            const dayMeals = getMealsForDay(i)
             const isToday = i === currentDayIndex && currentWeekOffset === 0
-            const hasTasks = dayTasks.length > 0
+            const hasTasks = dayTasks.length > 0 || dayMeals.length > 0
 
             return (
-              <div key={i} className="flex-1">
-                <div className={`text-center mb-4 relative p-4 rounded-2xl transition-all duration-300 ${
+              <div key={i} className="flex-1 flex flex-col min-w-0">
+                <div className={`text-center mb-3 relative p-3 rounded-xl transition-all duration-300 ${
                   isToday 
                     ? 'bg-gradient-to-br from-accent-mint to-pastel-mint text-white shadow-soft-lg' 
                     : 'bg-white shadow-card'
                 }`}>
-                  <p className={`text-sm font-medium ${isToday ? 'text-white/80' : 'text-gray-500'}`}>{day}</p>
-                  <p className={`text-2xl font-bold mt-1 ${isToday ? 'text-white' : 'text-gray-800'}`}>{formatDate(weekDates[i])}</p>
+                  <p className={`text-xs font-medium ${isToday ? 'text-white/80' : 'text-gray-500'}`}>{day}</p>
+                  <p className={`text-xl font-bold mt-0.5 ${isToday ? 'text-white' : 'text-gray-800'}`}>{formatDate(weekDates[i])}</p>
                   {hasTasks && !isToday && (
                     <span className="absolute top-2 right-2 w-2 h-2 bg-accent-mint rounded-full"></span>
                   )}
                 </div>
                 
-                <div className="space-y-3">
-                  {dayTasks.slice(0, 8).map(task => (
+                <div className="flex-1 overflow-y-auto space-y-2 pb-2">
+                  {dayMeals.map(meal => (
+                    <div key={meal.id} className="text-xs bg-pastel-peach/50 rounded-lg p-2 flex items-center gap-1">
+                      <span>{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
+                      <span className="truncate">{meal.meal_name}</span>
+                    </div>
+                  ))}
+                  {dayTasks.slice(0, 10).map(task => (
                     <TaskItem
                       key={task.id}
                       task={task}
@@ -291,21 +298,10 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                       presentationMode={true}
                     />
                   ))}
-                  {dayTasks.length > 8 && (
-                    <p className="text-xs text-gray-400 text-center py-2">
-                      +{dayTasks.length - 8} meer
+                  {dayTasks.length > 10 && (
+                    <p className="text-xs text-gray-400 text-center py-1">
+                      +{dayTasks.length - 10} meer
                     </p>
-                  )}
-                  
-                  {getMealsForDay(i).length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-gray-100">
-                      <p className="text-xs font-medium text-gray-400 mb-2">Eten</p>
-                      {getMealsForDay(i).map(meal => (
-                        <div key={meal.id} className="text-sm text-gray-600 py-1 px-2 bg-pastel-peach/30 rounded-lg mb-1">
-                          {meal.meal_type === 'lunch' ? '🍞' : '🍝'} {meal.meal_name}
-                        </div>
-                      ))}
-                    </div>
                   )}
                 </div>
               </div>

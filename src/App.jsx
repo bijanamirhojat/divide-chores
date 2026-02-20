@@ -12,7 +12,10 @@ export default function App() {
   const [users, setUsers] = useState([])
   const [showMenu, setShowMenu] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
-  const [presentationMode, setPresentationMode] = useState(false)
+  const [presentationMode, setPresentationMode] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('mode') === 'presentation'
+  })
 
   useEffect(() => {
     loadUsers()
