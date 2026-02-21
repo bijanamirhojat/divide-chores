@@ -16,10 +16,29 @@ export default function App() {
     const params = new URLSearchParams(window.location.search)
     return params.get('mode') === 'presentation'
   })
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false)
 
   useEffect(() => {
     loadUsers()
   }, [])
+
+  useEffect(() => {
+    if (presentationMode && users.length > 0) {
+      const params = new URLSearchParams(window.location.search)
+      const pin = params.get('pin')
+      if (pin && !currentUser && !isAutoLoggingIn) {
+        setIsAutoLoggingIn(true)
+        handleLogin(pin).then(matched => {
+          setIsAutoLoggingIn(false)
+          if (matched && matched.length > 0) {
+            if (matched.length === 1) {
+              setCurrentUser(matched[0])
+            }
+          }
+        })
+      }
+    }
+  }, [presentationMode, users, currentUser])
 
   async function loadUsers() {
     const { data } = await supabase.from('users').select('*').order('name')
