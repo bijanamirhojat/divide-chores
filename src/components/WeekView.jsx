@@ -440,19 +440,26 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
         <div className="px-4 pb-3">
           <div className="flex gap-1.5 bg-white/60 p-1.5 rounded-2xl">
-            {['all', 'bijan', 'esther'].map(f => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`filter-btn ${
-                  filter === f 
-                    ? 'bg-accent-mint text-white shadow-soft' 
-                    : 'text-gray-500 hover:bg-white/50'
-                }`}
-              >
-                {f === 'all' ? 'Alle' : f === 'bijan' ? 'Bijan' : 'Esther'}
-              </button>
-            ))}
+            {['all', 'bijan', 'esther'].map(f => {
+              const user = f === 'all' ? null : users.find(u => u.name === f.charAt(0).toUpperCase() + f.slice(1))
+              const avatar = user?.avatar_url
+              return (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`filter-btn flex items-center justify-center gap-1.5 ${
+                    filter === f 
+                      ? 'bg-accent-mint text-white shadow-soft' 
+                      : 'text-gray-500 hover:bg-white/50'
+                  }`}
+                >
+                  {avatar && (
+                    <img src={avatar} alt={f} className="w-5 h-5 rounded-full object-cover" />
+                  )}
+                  {f === 'all' ? 'Alle' : f === 'bijan' ? 'Bijan' : 'Esther'}
+                </button>
+              )
+            })}
           </div>
         </div>
       </div>

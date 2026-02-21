@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 
 export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, onEdit, onDelete, onDeleteAttempt, users, isToday, presentationMode, resetKey }) {
+  const assignedUser = users.find(u => u.id === task.assigned_to)
   const assignee = task.is_both 
     ? 'Samen' 
-    : users.find(u => u.id === task.assigned_to)?.name || 'Niemand'
+    : assignedUser?.name || 'Niemand'
+
+  const assigneeAvatar = task.is_both ? null : assignedUser?.avatar_url
 
   const assigneeConfig = {
     'Samen': { bg: 'bg-pastel-lavender', border: 'border-pastel-lavenderDark', text: 'text-pastel-lavenderDark', dot: 'bg-pastel-lavenderDark' },
@@ -75,7 +78,11 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
           </p>
         </div>
 
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${config.dot}`} title={assignee} />
+        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${config.dot}`} title={assignee}>
+          {assigneeAvatar && (
+            <img src={assigneeAvatar} alt={assignee} className="w-full h-full rounded-full object-cover" />
+          )}
+        </div>
       </div>
     )
   }
@@ -139,6 +146,9 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
               </p>
             )}
             <span className={`inline-flex items-center mt-2 text-xs px-2.5 py-1 rounded-lg font-medium ${config.bg} ${config.text}`}>
+              {assigneeAvatar ? (
+                <img src={assigneeAvatar} alt={assignee} className="w-4 h-4 rounded-full object-cover mr-1.5" />
+              ) : null}
               {assignee}
             </span>
           </div>
