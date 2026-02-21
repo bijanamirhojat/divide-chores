@@ -1,0 +1,23 @@
+{
+  "name": "Divide/Chores",
+  "short_name": "Divide/Chores",
+  "description": "Takenlijst app voor het huishouden",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FEFDFB",
+  "theme_color": "#A7F3D0",
+  "icons": [
+    {
+      "src": "/app_icon.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/app_icon.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "maskable"
+    }
+  ]
+}

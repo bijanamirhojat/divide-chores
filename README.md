@@ -59,6 +59,7 @@ divide-chores/
 | id | UUID | Primary key |
 | pin | TEXT | PIN code |
 | name | TEXT | Naam (Bijan/Esther) |
+| avatar_url | TEXT | Profielfoto URL (optioneel) |
 | created_at | TIMESTAMP | Created at |
 
 ### `tasks` tabel
@@ -123,6 +124,14 @@ npm run build
 
 Dit maakt een `dist` folder die naar GitHub Pages kan worden gedeployed.
 
+### PWA Installeren
+
+Op mobiel kun je de app installeren als native app:
+- **iOS**: Open in Safari → Delen → "Zet op beginscherm"
+- **Android**: Open in Chrome → Menu → "App installeren" of "Toevoegen aan beginscherm"
+
+Het icoon gebruikt `app_icon.jpeg` uit de `public` folder.
+
 ---
 
 ## Deployen naar GitHub Pages
@@ -165,6 +174,7 @@ De repo heeft een GitHub Action workflow die automatisch bouwt bij elke push naa
 
 - ✅ Mobile-first design
 - ✅ Week view in presentatie modus
+- ✅ Presentatie modus ook op mobiel (dag-carousel)
 - ✅ Taken toewijzen aan Bijan, Esther, of samen
 - ✅ Repeterende taken (wekelijks herhalen of éénmalig)
 - ✅ Confetti animatie bij afronden taak
@@ -175,6 +185,8 @@ De repo heeft een GitHub Action workflow die automatisch bouwt bij elke push naa
 - ✅ Meal planning (lunch/diner per dag)
 - ✅ Swipe om taak te verwijderen
 - ✅ Week navigatie in presentatie modus
+- ✅ Profielfoto's instellen (via menu)
+- ✅ PWA ondersteuning (opslaan op homescherm)
 
 ---
 
@@ -188,6 +200,7 @@ De repo heeft een GitHub Action workflow die automatisch bouwt bij elke push naa
 - Ga naar Supabase dashboard > Table Editor
 - Check of de tabellen correct zijn aangemaakt
 - Controleer de RLS policies
+- Voor profielfoto's: voeg een `avatar_url` kolom (type TEXT) toe aan de `users` tabel
 
 ### PIN werkt niet
 - Controleer of gebruikers bestaan in Supabase:
@@ -198,6 +211,11 @@ De repo heeft een GitHub Action workflow die automatisch bouwt bij elke push naa
 ---
 
 ## Versie History
+
+- **v1.2** (feb 2026): 
+  - Profielfoto's instellen per gebruiker
+  - Presentatie modus ook op mobiel (dag-carousel)
+  - PWA ondersteuning (app icon, homescherm)
 
 - **v1.1** (feb 2026): 
   - Meal planning feature
