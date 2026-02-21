@@ -8,15 +8,16 @@ const DAY_NAMES = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Za
 
 export default function WeekView({ currentUser, users, onComplete, presentationMode, onTogglePresentation, onOpenMenu }) {
   const [tasks, setTasks] = useState([])
-  const [completedTasks, setCompletedTasks] = useState([])
+  const [completedTasks, setCompletedTasks] = useState(null)  // Start with null, not []
   const [meals, setMeals] = useState([])
-  const [isReady, setIsReady] = useState(false)
   const [selectedDay, setSelectedDay] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [editTask, setEditTask] = useState(null)
   const [filter, setFilter] = useState('all')
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
   const [resetKey, setResetKey] = useState(0)
+
+  const isLoading = completedTasks === null
 
   const today = new Date()
   const currentDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1
@@ -35,19 +36,15 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const weekDates = getWeekDates(currentWeekOffset)
 
   useEffect(() => {
-    async function loadAll() {
-      await Promise.all([
-        loadTasks(),
-        loadCompletedTasks(),
-        loadMeals()
-      ])
-      setIsReady(true)
-    }
-    loadAll()
+    loadTasks()
+    loadMeals()
+    loadCompletedTasks()
 
     function handleVisibilityChange() {
       if (!document.hidden) {
-        loadAll()
+        loadTasks()
+        loadCompletedTasks()
+        loadMeals()
       }
     }
 
@@ -124,7 +121,8 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   }
 
   function isTaskCompleted(taskId) {
-    return completedTasks.some(ct => ct.task_id === taskId && ct.user_id === currentUser?.id)
+    if (!completedTasks) return false
+    return completedTasks.some(ct => ct.task_id === taskId)
   }
 
   async function handleCompleteTask(task) {
@@ -149,8 +147,6 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   }
 
   async function handleUncompleteTask(task) {
-    if (!currentUser) return
-    
     const weekNumber = getWeekNumber(weekDates[0])
     const year = weekDates[0].getFullYear()
     
@@ -158,7 +154,6 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
       .from('completed_tasks')
       .delete()
       .eq('task_id', task.id)
-      .eq('user_id', currentUser.id)
       .eq('week_number', weekNumber)
       .eq('year', year)
     
@@ -421,7 +416,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     )
   }
 
-  if (!isReady) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-pastel-cream flex items-center justify-center">
         <svg className="animate-spin w-8 h-8 text-pastel-mint" fill="none" viewBox="0 0 24 24">
