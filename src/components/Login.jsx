@@ -132,7 +132,10 @@ export default function Login({ onLogin, onSelectUser, users }) {
                 key={i}
                 type="button"
                 disabled={isLoading || (item === null)}
-                onClick={() => item === 'del' ? handleDelete() : item && handleNumberClick(String(item))}
+                onClick={() => {
+                  if (item === 'del') handleDelete()
+                  else if (item !== null) handleNumberClick(String(item))
+                }}
                 className={`h-14 rounded-xl text-2xl font-medium transition-all duration-150 active:scale-95 ${
                   item === null
                     ? 'invisible'
