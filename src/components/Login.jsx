@@ -33,13 +33,7 @@ export default function Login({ onLogin, onSelectUser, users }) {
 
   function handleNumberClick(num) {
     if (pin.length < 4) {
-      const newPin = pin + num
-      setPin(newPin)
-      if (newPin.length === 4) {
-        setTimeout(() => {
-          handleSubmit({ preventDefault: () => {} })
-        }, 200)
-      }
+      setPin(pin + num)
     }
   }
 
