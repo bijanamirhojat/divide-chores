@@ -65,6 +65,20 @@ export default function App() {
     setCurrentUser(user)
   }
 
+  async function handleUpdateUser(updates) {
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', currentUser.id)
+      .select()
+      .single()
+    
+    if (data && !error) {
+      setCurrentUser(data)
+      setUsers(users.map(u => u.id === data.id ? data : u))
+    }
+  }
+
   function handleLogout() {
     setCurrentUser(null)
     setSession(null)
@@ -105,6 +119,7 @@ export default function App() {
           currentUser={currentUser}
           presentationMode={presentationMode}
           onTogglePresentation={() => setPresentationMode(!presentationMode)}
+          onUpdateUser={handleUpdateUser}
         />
       )}
     </div>

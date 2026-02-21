@@ -58,9 +58,13 @@ export default function Login({ onLogin, onSelectUser, users }) {
                 }`}
               >
                 <span className="flex items-center justify-center gap-3">
-                  <span className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                    {user.name === 'Bijan' ? '👤' : '👤'}
-                  </span>
+                  {user.avatar_url ? (
+                    <img src={user.avatar_url} alt={user.name} className="w-10 h-10 rounded-full object-cover bg-white/20" />
+                  ) : (
+                    <span className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">
+                      {user.name === 'Bijan' ? '👨' : '👩'}
+                    </span>
+                  )}
                   {user.name}
                 </span>
               </button>
