@@ -29,11 +29,19 @@ export default function Stats({ onClose, users }) {
       const year = now.getFullYear()
       query = query.eq('week_number', weekNum).eq('year', year)
     } else if (period === 'month') {
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      query = query
-        .gte('completed_at', startOfMonth.toISOString())
-        .lte('completed_at', endOfMonth.toISOString() + 'T23:59:59')
+      const year = now.getFullYear()
+      const month = now.getMonth() + 1
+      const startOfMonth = new Date(year, now.getMonth(), 1)
+      const endOfMonth = new Date(year, now.getMonth() + 1, 0)
+      const startWeek = getWeekNumber(startOfMonth)
+      const endWeek = getWeekNumber(endOfMonth)
+      
+      if (startWeek <= endWeek) {
+        query = query.eq('year', year).gte('week_number', startWeek).lte('week_number', endWeek)
+      } else {
+        query = query.eq('year', year).gte('week_number', startWeek)
+          .or(`week_number.lte.${endWeek},year.lt.${year}`)
+      }
     } else if (period === 'year') {
       query = query.eq('year', now.getFullYear())
     }

@@ -10,6 +10,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const [tasks, setTasks] = useState([])
   const [completedTasks, setCompletedTasks] = useState([])
   const [meals, setMeals] = useState([])
+  const [isReady, setIsReady] = useState(false)
   const [selectedDay, setSelectedDay] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [editTask, setEditTask] = useState(null)
@@ -34,9 +35,27 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const weekDates = getWeekDates(currentWeekOffset)
 
   useEffect(() => {
-    loadTasks()
-    loadCompletedTasks()
-    loadMeals()
+    async function loadAll() {
+      await Promise.all([
+        loadTasks(),
+        loadCompletedTasks(),
+        loadMeals()
+      ])
+      setIsReady(true)
+    }
+    loadAll()
+
+    function handleVisibilityChange() {
+      if (!document.hidden) {
+        loadAll()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [currentWeekOffset])
 
   async function loadMeals() {
@@ -64,15 +83,14 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   }
 
   async function loadCompletedTasks() {
-    const weekDates = getWeekDates(currentWeekOffset)
-    const startDate = weekDates[0].toISOString().split('T')[0]
-    const endDate = weekDates[6].toISOString().split('T')[0]
+    const weekNumber = getWeekNumber(weekDates[0])
+    const year = weekDates[0].getFullYear()
     
     const { data } = await supabase
       .from('completed_tasks')
       .select('*')
-      .gte('completed_at', startDate)
-      .lte('completed_at', endDate + 'T23:59:59')
+      .eq('week_number', weekNumber)
+      .eq('year', year)
     
     if (data) setCompletedTasks(data)
   }
@@ -133,11 +151,16 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   async function handleUncompleteTask(task) {
     if (!currentUser) return
     
+    const weekNumber = getWeekNumber(weekDates[0])
+    const year = weekDates[0].getFullYear()
+    
     const { error } = await supabase
       .from('completed_tasks')
       .delete()
       .eq('task_id', task.id)
       .eq('user_id', currentUser.id)
+      .eq('week_number', weekNumber)
+      .eq('year', year)
     
     if (!error) {
       loadCompletedTasks()
@@ -394,6 +417,17 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
             </div>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-pastel-cream flex items-center justify-center">
+        <svg className="animate-spin w-8 h-8 text-pastel-mint" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
       </div>
     )
   }
