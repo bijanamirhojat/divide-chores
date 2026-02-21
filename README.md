@@ -178,6 +178,7 @@ De repo heeft een GitHub Action workflow die automatisch bouwt bij elke push naa
 
 ## Features
 
+- ✅ Taken zijn voor iedereen afgevinkt (één persoon hoeft maar af te vinken)
 - ✅ Mobile-first design
 - ✅ Numeriek toetsenbord voor PIN invoer
 - ✅ Week view in presentatie modus
@@ -226,11 +227,13 @@ De repo heeft een GitHub Action workflow die automatisch bouwt bij elke push naa
 
 ## Versie History
 
-- **v1.4** (feb 2026): 
-  - PWA auto-update (altijd nieuwste versie)
+- **v1.5** (feb 2026): 
+  - Taken zijn nu voor iedereen afgevinkt (niet per gebruiker)
+  - Auto-refresh bij app openen
   - Numeriek toetsenbord voor PIN invoer
+  - PWA auto-update (altijd nieuwste versie)
 
-- **v1.3** (feb 2026): 
+- **v1.4** (feb 2026): 
   - Statistieken feature (week/maand/jaar/alle tijden)
   - Profielfoto's zichtbaar bij taken en filters
   - Betere mobile presentatie modus
