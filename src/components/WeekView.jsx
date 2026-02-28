@@ -323,10 +323,15 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                         setEditMeal(meal)
                         setShowModal(true)
                       }}
-                      className="w-full bg-pastel-peach/60 rounded px-2 py-1.5 text-sm font-medium text-gray-700 flex items-center gap-1.5 text-left hover:bg-pastel-peach/80 transition-colors"
+                      className="w-full bg-pastel-peach/60 rounded px-2 py-1.5 text-sm font-medium text-gray-700 flex items-center justify-between text-left hover:bg-pastel-peach/80 transition-colors"
                     >
-                      <span>{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
-                      <span className="whitespace-normal">{meal.meal_name}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span>{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
+                        <span className="whitespace-normal">{meal.meal_name}</span>
+                      </div>
+                      <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
                     </button>
                   ))}
                   {dayTasks.map(task => (
@@ -397,10 +402,15 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                     setEditMeal(meal)
                     setShowModal(true)
                   }}
-                  className="w-full bg-pastel-peach/60 rounded-xl px-3 py-2.5 text-base font-medium text-gray-700 flex items-center gap-2 text-left hover:bg-pastel-peach/80 transition-colors"
+                  className="w-full bg-pastel-peach/60 rounded-xl px-3 py-2.5 text-base font-medium text-gray-700 flex items-center justify-between text-left hover:bg-pastel-peach/80 transition-colors"
                 >
-                  <span>{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
-                  <span className="whitespace-normal">{meal.meal_name}</span>
+                  <div className="flex items-center gap-2">
+                    <span>{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
+                    <span className="whitespace-normal">{meal.meal_name}</span>
+                  </div>
+                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
                 </button>
               ))}
               {getTasksForDay(activeDay).map(task => (
@@ -555,26 +565,22 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
           <div className="mb-6">
             <div className="space-y-2">
               {getMealsForDay(activeDay).map(meal => (
-                <div key={meal.id} className="flex items-center justify-between bg-pastel-peach/30 rounded-xl p-3">
-                  <button
-                    onClick={() => {
-                      setEditMeal(meal)
-                      setShowModal(true)
-                    }}
-                    className="flex items-center gap-2 flex-1 text-left"
-                  >
+                <button
+                  key={meal.id}
+                  onClick={() => {
+                    setEditMeal(meal)
+                    setShowModal(true)
+                  }}
+                  className="w-full flex items-center justify-between bg-pastel-peach/30 hover:bg-pastel-peach/50 active:scale-[0.99] rounded-xl p-3 transition-all"
+                >
+                  <div className="flex items-center gap-2">
                     <span className="text-lg">{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
                     <span className="text-gray-700">{meal.meal_name}</span>
-                  </button>
-                  <button 
-                    onClick={() => deleteMeal(meal.id)}
-                    className="text-gray-400 hover:text-red-400 p-1"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+                  </div>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
               ))}
             </div>
           </div>

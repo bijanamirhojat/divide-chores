@@ -10,7 +10,7 @@ if ('serviceWorker' in navigator) {
         const newWorker = registration.installing
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            window.location.reload()
+            window.dispatchEvent(new CustomEvent('sw-update-available'))
           }
         })
       })
