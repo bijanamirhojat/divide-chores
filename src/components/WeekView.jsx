@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import TaskItem from './TaskItem'
 import TaskModal from './TaskModal'
@@ -19,10 +19,55 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const [resetKey, setResetKey] = useState(0)
 
   const isLoading = completedTasks === null
+  
+  // Fluid pill refs for filter bar
+  const filterContainerRef = useRef(null)
+  const filterBtnRefs = useRef({})
+  const [filterPillStyle, setFilterPillStyle] = useState(null)
+
+  const updateFilterPill = useCallback(() => {
+    const container = filterContainerRef.current
+    const btn = filterBtnRefs.current[filter]
+    if (!container || !btn) return
+    const containerRect = container.getBoundingClientRect()
+    const btnRect = btn.getBoundingClientRect()
+    setFilterPillStyle({
+      left: btnRect.left - containerRect.left,
+      width: btnRect.width,
+    })
+  }, [filter])
+
+  useLayoutEffect(() => {
+    updateFilterPill()
+  }, [updateFilterPill, isLoading])
+
+  // Also measure after first paint in case layout isn't settled
+  useEffect(() => {
+    requestAnimationFrame(updateFilterPill)
+  }, [updateFilterPill, isLoading])
 
   const today = new Date()
   const currentDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1
   const [activeDay, setActiveDay] = useState(currentDayIndex)
+
+  // Track previous values for slide direction
+  const prevActiveDayRef = useRef(activeDay)
+  const prevWeekOffsetRef = useRef(currentWeekOffset)
+  const [slideDirection, setSlideDirection] = useState(null)
+  const slideKeyRef = useRef(0)
+
+  useEffect(() => {
+    const prevDay = prevActiveDayRef.current
+    const prevWeek = prevWeekOffsetRef.current
+    if (currentWeekOffset !== prevWeek) {
+      setSlideDirection(currentWeekOffset > prevWeek ? 'left' : 'right')
+    } else if (activeDay !== prevDay) {
+      setSlideDirection(activeDay > prevDay ? 'left' : 'right')
+    }
+    slideKeyRef.current += 1
+    prevActiveDayRef.current = activeDay
+    prevWeekOffsetRef.current = currentWeekOffset
+  }, [activeDay, currentWeekOffset])
   
   function getWeekDates(offset = 0) {
     const start = new Date(today)
@@ -493,17 +538,29 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         </div>
 
         <div className="px-4 pb-3">
-          <div className="flex gap-1.5 bg-white/60 p-1.5 rounded-2xl">
+          <div ref={filterContainerRef} className="relative flex gap-1.5 bg-white/60 p-1.5 rounded-2xl">
+            {/* Fluid pill indicator */}
+            {filterPillStyle && (
+              <div
+                className="absolute top-1.5 bottom-1.5 rounded-xl shadow-soft pointer-events-none transition-all duration-300 ease-out"
+                style={{
+                  left: filterPillStyle.left,
+                  width: filterPillStyle.width,
+                  backgroundColor: filter === 'all' ? '#7BC4A8' : filter === 'bijan' ? '#8BB8E8' : '#F5A8C0',
+                }}
+              />
+            )}
             {['all', 'bijan', 'esther'].map(f => {
               const user = f === 'all' ? null : users.find(u => u.name === f.charAt(0).toUpperCase() + f.slice(1))
               const avatar = user?.avatar_url
               return (
                 <button
                   key={f}
+                  ref={el => { filterBtnRefs.current[f] = el }}
                   onClick={() => setFilter(f)}
-                  className={`filter-btn flex items-center justify-center gap-1.5 ${
+                  className={`filter-btn flex items-center justify-center gap-1.5 relative z-10 transition-colors duration-300 ${
                     filter === f 
-                      ? 'bg-accent-mint text-white shadow-soft' 
+                      ? 'text-white' 
                       : 'text-gray-500 hover:bg-white/50'
                   }`}
                 >
@@ -549,8 +606,9 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         </div>
       </div>
 
-      <div className="px-4 pb-24" key={`day-${activeDay}-${currentWeekOffset}`}>
-        <div className="flex items-center justify-between mb-4 animate-fade-in">
+      <div className="px-4 pb-24" key={`day-${activeDay}-${currentWeekOffset}-${slideKeyRef.current}`}>
+        <div className={slideDirection === 'left' ? 'animate-slide-content-left' : slideDirection === 'right' ? 'animate-slide-content-right' : 'animate-fade-in'}>
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">
             {DAY_NAMES[activeDay]}
           </h2>
@@ -617,6 +675,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
               <p className="text-gray-300 text-sm mt-1">Druk op + om een taak toe te voegen</p>
             </div>
           )}
+        </div>
         </div>
       </div>
 

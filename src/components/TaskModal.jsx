@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
@@ -23,6 +23,36 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
   
   const [mealName, setMealName] = useState(editMeal?.meal_name || '')
   const [mealType, setMealType] = useState(editMeal?.meal_type || 'dinner')
+
+  // Fluid pill for assignee selector
+  const assigneeContainerRef = useRef(null)
+  const assigneeBtnRefs = useRef({})
+  const [assigneePillStyle, setAssigneePillStyle] = useState(null)
+
+  const assigneeColorMap = { both: '#B89DD4', bijan: '#8BB8E8', esther: '#F5A8C0' }
+
+  const updateAssigneePill = useCallback(() => {
+    const container = assigneeContainerRef.current
+    const btn = assigneeBtnRefs.current[assignedTo]
+    if (!container || !btn) return
+    const containerRect = container.getBoundingClientRect()
+    const btnRect = btn.getBoundingClientRect()
+    setAssigneePillStyle({
+      left: btnRect.left - containerRect.left,
+      width: btnRect.width,
+    })
+  }, [assignedTo])
+
+  useLayoutEffect(() => {
+    updateAssigneePill()
+  }, [updateAssigneePill])
+
+  // Recalculate after first paint + after modal slide-up animation settles
+  useEffect(() => {
+    requestAnimationFrame(updateAssigneePill)
+    const timer = setTimeout(updateAssigneePill, 350)
+    return () => clearTimeout(timer)
+  }, [updateAssigneePill])
 
   const isEditing = !!editTask
   const isEditingMeal = !!editMeal
@@ -255,15 +285,28 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
 
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">Toewijzen aan</label>
-                <div className="flex gap-2">
+                <div ref={assigneeContainerRef} className="relative flex gap-2">
+                  {/* Fluid pill indicator */}
+                  {assigneePillStyle && (
+                    <div
+                      className="absolute top-0 bottom-0 rounded-xl shadow-soft pointer-events-none transition-all duration-300 ease-out ring-2 ring-offset-2"
+                      style={{
+                        left: assigneePillStyle.left,
+                        width: assigneePillStyle.width,
+                        backgroundColor: assigneeColorMap[assignedTo],
+                        '--tw-ring-color': assigneeColorMap[assignedTo],
+                      }}
+                    />
+                  )}
                   {assigneeOptions.map(opt => (
                     <button
                       key={opt.value}
                       type="button"
+                      ref={el => { assigneeBtnRefs.current[opt.value] = el }}
                       onClick={() => setAssignedTo(opt.value)}
-                      className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
+                      className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors duration-300 flex items-center justify-center gap-1.5 relative z-10 ${
                         assignedTo === opt.value
-                          ? `${opt.activeBg} text-white shadow-soft ring-2 ${opt.ring} ring-offset-2`
+                          ? 'text-white'
                           : `${opt.bg} text-gray-500 hover:opacity-80`
                       }`}
                     >
