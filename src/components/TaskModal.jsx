@@ -1,8 +1,31 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
 const DAY_NAMES = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
+
+/**
+ * Fire-and-forget: send push notification for a new task via Edge Function.
+ */
+function sendNewTaskPush({ creatorName, taskTitle, dayName, targetUserIds }) {
+  if (!targetUserIds.length) return
+  fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify({
+      type: 'new-task',
+      creator_name: creatorName,
+      task_title: taskTitle,
+      day_name: dayName,
+      target_user_ids: targetUserIds,
+    }),
+  }).catch(() => {}) // Silent fail — don't block the user
+}
 
 export default function TaskModal({ dayIndex, dayName, onClose, users, currentUser, onTaskCreated, editTask, onMealAdded, editMeal, onMealUpdated, onMealDeleted }) {
   const [mode, setMode] = useState(editMeal ? 'meal' : 'task')
@@ -114,6 +137,22 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
         setLoading(false)
   
         if (!error) {
+          // Send push notification for new task (fire-and-forget)
+          const targetUserIds = []
+          if (taskIsBoth) {
+            // Notify everyone except the creator
+            users.filter(u => u.id !== currentUser.id).forEach(u => targetUserIds.push(u.id))
+          } else if (taskAssignedTo && taskAssignedTo !== currentUser.id) {
+            // Notify the assigned person (only if it's not the creator)
+            targetUserIds.push(taskAssignedTo)
+          }
+          sendNewTaskPush({
+            creatorName: currentUser.name,
+            taskTitle: title.trim(),
+            dayName: DAY_NAMES[dayOfWeek],
+            targetUserIds,
+          })
+
           onTaskCreated()
           onClose()
         }

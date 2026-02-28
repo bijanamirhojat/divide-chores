@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush } from '../lib/pushSubscription'
 import AnimatedOverlay from './AnimatedOverlay'
 
 const APP_VERSION = import.meta.env.APP_VERSION || '0.0.0'
@@ -10,7 +11,46 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
   const [completedTasks, setCompletedTasks] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [showAvatarMenu, setShowAvatarMenu] = useState(false)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [notificationsLoading, setNotificationsLoading] = useState(false)
+  const [notificationsSupported, setNotificationsSupported] = useState(true)
   const fileInputRef = useRef(null)
+
+  useEffect(() => {
+    checkNotificationStatus()
+  }, [])
+
+  async function checkNotificationStatus() {
+    if (!isPushSupported()) {
+      setNotificationsSupported(false)
+      return
+    }
+    const status = await getSubscriptionStatus()
+    setNotificationsEnabled(status === 'subscribed')
+    if (status === 'denied') setNotificationsSupported(false)
+  }
+
+  async function handleToggleNotifications() {
+    if (notificationsLoading) return
+    setNotificationsLoading(true)
+    try {
+      if (notificationsEnabled) {
+        await unsubscribeFromPush()
+        setNotificationsEnabled(false)
+      } else {
+        await subscribeToPush(currentUser.id)
+        setNotificationsEnabled(true)
+      }
+    } catch (err) {
+      console.error('Notification toggle failed:', err)
+      // Re-check actual status
+      const status = await getSubscriptionStatus()
+      setNotificationsEnabled(status === 'subscribed')
+      if (status === 'denied') setNotificationsSupported(false)
+    } finally {
+      setNotificationsLoading(false)
+    }
+  }
 
   async function loadHistory() {
     setLoadingHistory(true)
@@ -61,6 +101,33 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
       bg: 'bg-pastel-mint/30',
       iconBg: 'bg-pastel-mint',
     },
+    ...(notificationsSupported ? [{
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      ),
+      label: (
+        <span className="flex items-center justify-between w-full">
+          <span>Meldingen</span>
+          <span className="relative ml-auto">
+            {notificationsLoading ? (
+              <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : (
+              <span className={`block w-11 h-6 rounded-full transition-colors duration-200 ${notificationsEnabled ? 'bg-accent-mint' : 'bg-gray-200'}`}>
+                <span className={`block w-5 h-5 mt-0.5 rounded-full bg-white shadow transition-transform duration-200 ${notificationsEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+              </span>
+            )}
+          </span>
+        </span>
+      ),
+      onClick: handleToggleNotifications,
+      bg: 'bg-amber-50',
+      iconBg: 'bg-amber-100',
+    }] : []),
     {
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,6 +136,7 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
       ),
       label: presentationMode ? 'Presentatie uit' : 'Presentatie aan',
       onClick: onTogglePresentation,
+      closeOnClick: true,
       bg: 'bg-pastel-lavender/30',
       iconBg: 'bg-pastel-lavender',
     },
@@ -184,7 +252,7 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
                 key={index}
                 onClick={() => {
                   item.onClick()
-                  if (index === 1) onClose()
+                  if (item.closeOnClick) onClose()
                 }}
                 className="w-full p-4 rounded-2xl text-left flex items-center gap-4 hover:shadow-soft transition-all duration-200 active:bg-gray-50"
               >

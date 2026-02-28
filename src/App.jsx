@@ -1,6 +1,7 @@
 // v1.2.0 - meal editing + PWA update banner
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
+import { resubscribeIfNeeded } from './lib/pushSubscription'
 import Login from './components/Login'
 import WeekView from './components/WeekView'
 import TaskModal from './components/TaskModal'
@@ -74,6 +75,13 @@ export default function App() {
       }
     }
   }, [presentationMode, users, currentUser])
+
+  // Re-subscribe push notifications silently after login
+  useEffect(() => {
+    if (currentUser?.id) {
+      resubscribeIfNeeded(currentUser.id)
+    }
+  }, [currentUser?.id])
 
   async function loadUsers() {
     const { data } = await supabase.from('users').select('*').order('name')
