@@ -1,6 +1,9 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
+const APP_VERSION = import.meta.env.APP_VERSION || '0.0.0'
+const BUILD_ID = import.meta.env.BUILD_ID || 'dev'
+
 export default function Menu({ onClose, onLogout, currentUser, presentationMode, onTogglePresentation, onUpdateUser, onOpenStats }) {
   const [showHistory, setShowHistory] = useState(false)
   const [completedTasks, setCompletedTasks] = useState([])
@@ -180,6 +183,12 @@ export default function Menu({ onClose, onLogout, currentUser, presentationMode,
             </div>
             <span className="font-medium text-red-500">Uitloggen</span>
           </button>
+
+          <div className="pt-4 border-t border-gray-100 mt-2">
+            <p className="text-xs text-gray-300 text-center">
+              Divide/Chores v{APP_VERSION} &middot; build {BUILD_ID}
+            </p>
+          </div>
         </div>
       </div>
 

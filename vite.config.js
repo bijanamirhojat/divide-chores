@@ -1,8 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { readFileSync } from 'fs'
 
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 const buildTimestamp = Date.now()
+const buildId = buildTimestamp.toString(36).slice(-6)
 
 export default defineConfig({
   plugins: [
@@ -67,6 +70,8 @@ export default defineConfig({
   ],
   base: '/divide-chores/',
   define: {
-    'import.meta.env.BUILD_TIMESTAMP': JSON.stringify(buildTimestamp)
+    'import.meta.env.BUILD_TIMESTAMP': JSON.stringify(buildTimestamp),
+    'import.meta.env.APP_VERSION': JSON.stringify(pkg.version),
+    'import.meta.env.BUILD_ID': JSON.stringify(buildId)
   }
 })
