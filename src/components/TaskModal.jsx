@@ -4,12 +4,12 @@ import { supabase } from '../lib/supabase'
 const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
 const DAY_NAMES = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
 
-export default function TaskModal({ dayIndex, dayName, onClose, users, currentUser, onTaskCreated, editTask, onMealAdded }) {
-  const [mode, setMode] = useState('task')
+export default function TaskModal({ dayIndex, dayName, onClose, users, currentUser, onTaskCreated, editTask, onMealAdded, editMeal, onMealUpdated, onMealDeleted }) {
+  const [mode, setMode] = useState(editMeal ? 'meal' : 'task')
   
   const [title, setTitle] = useState(editTask?.title || '')
   const [description, setDescription] = useState(editTask?.description || '')
-  const [dayOfWeek, setDayOfWeek] = useState(editTask?.day_of_week ?? dayIndex)
+  const [dayOfWeek, setDayOfWeek] = useState(editMeal?.day_of_week ?? editTask?.day_of_week ?? dayIndex)
   const [assignedTo, setAssignedTo] = useState(() => {
     if (editTask?.is_both) return 'both'
     if (editTask?.assigned_to) {
@@ -21,10 +21,11 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
   const [isRecurring, setIsRecurring] = useState(editTask?.is_recurring ?? false)
   const [loading, setLoading] = useState(false)
   
-  const [mealName, setMealName] = useState('')
-  const [mealType, setMealType] = useState('dinner')
+  const [mealName, setMealName] = useState(editMeal?.meal_name || '')
+  const [mealType, setMealType] = useState(editMeal?.meal_type || 'dinner')
 
   const isEditing = !!editTask
+  const isEditingMeal = !!editMeal
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -92,12 +93,30 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
       
       setLoading(true)
       
-      if (onMealAdded) {
-        onMealAdded(mealName.trim(), mealType)
+      if (isEditingMeal) {
+        const { error } = await supabase
+          .from('meals')
+          .update({
+            meal_name: mealName.trim(),
+            meal_type: mealType,
+            day_of_week: dayOfWeek
+          })
+          .eq('id', editMeal.id)
+        
+        setLoading(false)
+        
+        if (!error) {
+          if (onMealUpdated) onMealUpdated()
+          onClose()
+        }
+      } else {
+        if (onMealAdded) {
+          onMealAdded(dayOfWeek, mealName.trim(), mealType)
+        }
+        
+        setLoading(false)
+        onClose()
       }
-      
-      setLoading(false)
-      onClose()
     }
   }
 
@@ -120,6 +139,20 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
     }
   }
 
+  async function handleDeleteMeal(e) {
+    e.preventDefault()
+    if (!confirm('Weet je zeker dat je dit eten wilt verwijderen?')) return
+
+    setLoading(true)
+
+    if (onMealDeleted) {
+      await onMealDeleted(editMeal.id)
+    }
+
+    setLoading(false)
+    onClose()
+  }
+
   const assigneeOptions = [
     { value: 'both', label: 'Samen', bg: 'bg-pastel-lavender', activeBg: 'bg-pastel-lavenderDark' },
     { value: 'bijan', label: 'Bijan', bg: 'bg-brand-bijan/20', activeBg: 'bg-brand-bijan' },
@@ -135,7 +168,7 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
         <div className="p-5 border-b border-gray-100">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-800">
-              {isEditing ? 'Taak wijzigen' : 'Toevoegen'}
+              {isEditing ? 'Taak wijzigen' : isEditingMeal ? 'Eten wijzigen' : 'Toevoegen'}
             </h2>
             <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
               <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,7 +178,7 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
           </div>
         </div>
 
-        {!isEditing && (
+        {!isEditing && !isEditingMeal && (
           <div className="px-5 pt-2">
             <div className="flex bg-gray-100 p-1 rounded-2xl">
               <button
@@ -331,7 +364,7 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-            ) : isEditing ? 'Wijzigingen opslaan' : mode === 'task' ? 'Taak toevoegen' : 'Eten toevoegen'}
+            ) : isEditing ? 'Wijzigingen opslaan' : isEditingMeal ? 'Wijzigingen opslaan' : mode === 'task' ? 'Taak toevoegen' : 'Eten toevoegen'}
           </button>
 
           {isEditing && (
@@ -342,6 +375,17 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
               className="w-full py-3 text-red-500 font-medium text-sm hover:bg-red-50 rounded-xl transition-colors"
             >
               Taak verwijderen
+            </button>
+          )}
+
+          {isEditingMeal && (
+            <button
+              type="button"
+              onClick={handleDeleteMeal}
+              disabled={loading}
+              className="w-full py-3 text-red-500 font-medium text-sm hover:bg-red-50 rounded-xl transition-colors"
+            >
+              Eten verwijderen
             </button>
           )}
         </form>

@@ -13,6 +13,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const [selectedDay, setSelectedDay] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [editTask, setEditTask] = useState(null)
+  const [editMeal, setEditMeal] = useState(null)
   const [filter, setFilter] = useState('all')
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
   const [resetKey, setResetKey] = useState(0)
@@ -316,10 +317,17 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                 
                 <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
                   {dayMeals.map(meal => (
-                    <div key={meal.id} className="bg-pastel-peach/60 rounded px-2 py-1.5 text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                    <button
+                      key={meal.id}
+                      onClick={() => {
+                        setEditMeal(meal)
+                        setShowModal(true)
+                      }}
+                      className="w-full bg-pastel-peach/60 rounded px-2 py-1.5 text-sm font-medium text-gray-700 flex items-center gap-1.5 text-left hover:bg-pastel-peach/80 transition-colors"
+                    >
                       <span>{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
                       <span className="whitespace-normal">{meal.meal_name}</span>
-                    </div>
+                    </button>
                   ))}
                   {dayTasks.map(task => (
                     <TaskItem
@@ -383,10 +391,17 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
             
             <div className="p-3 space-y-2">
               {getMealsForDay(activeDay).map(meal => (
-                <div key={meal.id} className="bg-pastel-peach/60 rounded-xl px-3 py-2.5 text-base font-medium text-gray-700 flex items-center gap-2">
+                <button
+                  key={meal.id}
+                  onClick={() => {
+                    setEditMeal(meal)
+                    setShowModal(true)
+                  }}
+                  className="w-full bg-pastel-peach/60 rounded-xl px-3 py-2.5 text-base font-medium text-gray-700 flex items-center gap-2 text-left hover:bg-pastel-peach/80 transition-colors"
+                >
                   <span>{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
                   <span className="whitespace-normal">{meal.meal_name}</span>
-                </div>
+                </button>
               ))}
               {getTasksForDay(activeDay).map(task => (
                 <TaskItem
@@ -541,10 +556,16 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
             <div className="space-y-2">
               {getMealsForDay(activeDay).map(meal => (
                 <div key={meal.id} className="flex items-center justify-between bg-pastel-peach/30 rounded-xl p-3">
-                  <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setEditMeal(meal)
+                      setShowModal(true)
+                    }}
+                    className="flex items-center gap-2 flex-1 text-left"
+                  >
                     <span className="text-lg">{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
                     <span className="text-gray-700">{meal.meal_name}</span>
-                  </div>
+                  </button>
                   <button 
                     onClick={() => deleteMeal(meal.id)}
                     className="text-gray-400 hover:text-red-400 p-1"
@@ -607,18 +628,24 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
       {showModal && (
         <TaskModal
-          dayIndex={editTask?.day_of_week ?? selectedDay ?? activeDay}
-          dayName={DAY_NAMES[editTask?.day_of_week ?? selectedDay ?? activeDay]}
+          dayIndex={editMeal?.day_of_week ?? editTask?.day_of_week ?? selectedDay ?? activeDay}
+          dayName={DAY_NAMES[editMeal?.day_of_week ?? editTask?.day_of_week ?? selectedDay ?? activeDay]}
           onClose={() => {
             setShowModal(false)
             setSelectedDay(null)
             setEditTask(null)
+            setEditMeal(null)
           }}
           users={users}
           currentUser={currentUser}
           onTaskCreated={loadTasks}
           editTask={editTask}
-          onMealAdded={(name, type) => addMeal(editTask?.day_of_week ?? selectedDay ?? activeDay, name, type)}
+          editMeal={editMeal}
+          onMealAdded={(dayIndex, name, type) => addMeal(dayIndex, name, type)}
+          onMealUpdated={loadMeals}
+          onMealDeleted={async (mealId) => {
+            await deleteMeal(mealId)
+          }}
         />
       )}
     </div>
