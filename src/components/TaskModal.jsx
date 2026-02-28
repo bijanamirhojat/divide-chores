@@ -154,15 +154,15 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
   }
 
   const assigneeOptions = [
-    { value: 'both', label: 'Samen', bg: 'bg-pastel-lavender', activeBg: 'bg-pastel-lavenderDark' },
-    { value: 'bijan', label: 'Bijan', bg: 'bg-brand-bijan/20', activeBg: 'bg-brand-bijan' },
-    { value: 'esther', label: 'Esther', bg: 'bg-brand-esther/20', activeBg: 'bg-brand-esther' },
+    { value: 'both', label: 'Samen', bg: 'bg-pastel-lavender/30', activeBg: 'bg-pastel-lavenderDark', ring: 'ring-pastel-lavenderDark' },
+    { value: 'bijan', label: 'Bijan', bg: 'bg-brand-bijan/10', activeBg: 'bg-brand-bijan', ring: 'ring-brand-bijan' },
+    { value: 'esther', label: 'Esther', bg: 'bg-brand-esther/10', activeBg: 'bg-brand-esther', ring: 'ring-brand-esther' },
   ]
 
   return (
-    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-end z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-end z-50 animate-fade-in" onClick={onClose}>
       <div 
-        className="bg-white rounded-t-3xl w-full max-h-[90vh] overflow-y-auto shadow-soft-lg"
+        className="bg-white rounded-t-3xl w-full max-h-[90vh] overflow-y-auto shadow-soft-lg animate-slide-up"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-gray-100">
@@ -218,7 +218,6 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
                   onChange={e => setTitle(e.target.value)}
                   placeholder="Bijv. Stofzuigen"
                   className="input-field"
-                  autoFocus={mode === 'task'}
                   required={mode === 'task'}
                 />
               </div>
@@ -262,10 +261,10 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
                       key={opt.value}
                       type="button"
                       onClick={() => setAssignedTo(opt.value)}
-                      className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${
+                      className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
                         assignedTo === opt.value
-                          ? `${opt.activeBg} text-white shadow-soft`
-                          : `${opt.bg} text-gray-600 hover:opacity-80`
+                          ? `${opt.activeBg} text-white shadow-soft ring-2 ${opt.ring} ring-offset-2`
+                          : `${opt.bg} text-gray-500 hover:opacity-80`
                       }`}
                     >
                       {opt.label}
@@ -327,7 +326,6 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
                   onChange={e => setMealName(e.target.value)}
                   placeholder="Bijv. Pasta, Stamppot, Pizza..."
                   className="input-field"
-                  autoFocus={mode === 'meal'}
                   required={mode === 'meal'}
                 />
               </div>

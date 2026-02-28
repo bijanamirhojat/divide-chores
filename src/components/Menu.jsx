@@ -8,6 +8,7 @@ export default function Menu({ onClose, onLogout, currentUser, presentationMode,
   const [showHistory, setShowHistory] = useState(false)
   const [completedTasks, setCompletedTasks] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false)
   const fileInputRef = useRef(null)
 
   async function loadHistory() {
@@ -86,18 +87,6 @@ export default function Menu({ onClose, onLogout, currentUser, presentationMode,
       bg: 'bg-pastel-peach/30',
       iconBg: 'bg-pastel-peach',
     },
-    ...(currentUser?.avatar_url ? [{
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-      ),
-      label: 'Verwijder profielfoto',
-      onClick: handleRemoveAvatar,
-      bg: 'bg-red-50',
-      iconBg: 'bg-red-100',
-      textColor: 'text-red-500',
-    }] : []),
   ]
 
   const dayNames = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
@@ -120,26 +109,59 @@ export default function Menu({ onClose, onLogout, currentUser, presentationMode,
         <div className="p-5 space-y-6">
           <div className="bg-gradient-to-br from-pastel-mint/50 to-pastel-lavender/30 rounded-2xl p-5">
             <div className="flex items-center gap-4">
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="relative group"
-              >
-                <div className="w-14 h-14 rounded-2xl bg-white shadow-soft flex items-center justify-center overflow-hidden">
-                  {currentUser?.avatar_url ? (
-                    <img src={currentUser.avatar_url} alt={currentUser.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-2xl">
-                      {currentUser?.name === 'Bijan' ? '👨' : '👩'}
-                    </span>
-                  )}
-                </div>
-                <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => setShowAvatarMenu(!showAvatarMenu)}
+                  className="relative group"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-white shadow-soft flex items-center justify-center overflow-hidden">
+                    {currentUser?.avatar_url ? (
+                      <img src={currentUser.avatar_url} alt={currentUser.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">
+                        {currentUser?.name === 'Bijan' ? '👨' : '👩'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                </button>
+                {showAvatarMenu && (
+                  <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-soft-lg border border-gray-100 overflow-hidden z-10 min-w-[180px]">
+                    <button
+                      onClick={() => {
+                        setShowAvatarMenu(false)
+                        fileInputRef.current?.click()
+                      }}
+                      className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                    >
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Foto wijzigen
+                    </button>
+                    {currentUser?.avatar_url && (
+                      <button
+                        onClick={() => {
+                          setShowAvatarMenu(false)
+                          handleRemoveAvatar()
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-red-50 flex items-center gap-3 transition-colors border-t border-gray-100"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Foto verwijderen
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
