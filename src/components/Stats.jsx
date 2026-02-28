@@ -196,7 +196,7 @@ export default function Stats({ show, onClose, users }) {
   return (
     <AnimatedOverlay show={show} onClose={onClose} direction="up" className="flex items-stretch h-full">
       <div 
-        className="bg-white w-full max-w-lg mx-auto h-full overflow-y-auto"
+        className="bg-white w-full h-full overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">

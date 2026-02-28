@@ -73,14 +73,37 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
     const file = e.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = async (event) => {
-      const base64 = event.target.result
-      if (onUpdateUser) {
-        await onUpdateUser({ avatar_url: base64 })
-      }
+    // Resize to max 256x256 to keep base64 small and avoid DB/query issues
+    const base64 = await resizeImage(file, 256)
+    if (onUpdateUser) {
+      await onUpdateUser({ avatar_url: base64 })
     }
-    reader.readAsDataURL(file)
+  }
+
+  function resizeImage(file, maxSize) {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let w = img.width
+          let h = img.height
+          if (w > h) {
+            if (w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize }
+          } else {
+            if (h > maxSize) { w = Math.round(w * maxSize / h); h = maxSize }
+          }
+          canvas.width = w
+          canvas.height = h
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0, w, h)
+          resolve(canvas.toDataURL('image/jpeg', 0.8))
+        }
+        img.src = event.target.result
+      }
+      reader.readAsDataURL(file)
+    })
   }
 
   async function handleRemoveAvatar() {
@@ -101,33 +124,6 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
       bg: 'bg-pastel-mint/30',
       iconBg: 'bg-pastel-mint',
     },
-    ...(notificationsSupported ? [{
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-        </svg>
-      ),
-      label: (
-        <span className="flex items-center justify-between w-full">
-          <span>Meldingen</span>
-          <span className="relative ml-auto">
-            {notificationsLoading ? (
-              <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : (
-              <span className={`block w-11 h-6 rounded-full transition-colors duration-200 ${notificationsEnabled ? 'bg-accent-mint' : 'bg-gray-200'}`}>
-                <span className={`block w-5 h-5 mt-0.5 rounded-full bg-white shadow transition-transform duration-200 ${notificationsEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-              </span>
-            )}
-          </span>
-        </span>
-      ),
-      onClick: handleToggleNotifications,
-      bg: 'bg-amber-50',
-      iconBg: 'bg-amber-100',
-    }] : []),
     {
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -263,6 +259,32 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
               </button>
             ))}
           </div>
+
+          {notificationsSupported && (
+            <button
+              onClick={handleToggleNotifications}
+              className="w-full p-4 rounded-2xl text-left flex items-center gap-4 hover:shadow-soft transition-all duration-200 active:bg-gray-50"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </div>
+              <span className="font-medium text-gray-700">Meldingen</span>
+              <span className="ml-auto">
+                {notificationsLoading ? (
+                  <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <span className={`block w-11 h-6 rounded-full transition-colors duration-200 ${notificationsEnabled ? 'bg-accent-mint' : 'bg-gray-200'}`}>
+                    <span className={`block w-5 h-5 mt-0.5 rounded-full bg-white shadow transition-transform duration-200 ${notificationsEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                  </span>
+                )}
+              </span>
+            </button>
+          )}
 
           <button
             onClick={onLogout}

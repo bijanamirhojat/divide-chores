@@ -18,6 +18,27 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
   const [resetKey, setResetKey] = useState(0)
 
+  // Swipe gesture state for day-selector bar
+  const touchStartRef = useRef(null)
+
+  const handleDaySelectorTouchStart = useCallback((e) => {
+    touchStartRef.current = e.touches[0].clientX
+  }, [])
+
+  const handleDaySelectorTouchEnd = useCallback((e) => {
+    if (touchStartRef.current === null) return
+    const diff = touchStartRef.current - e.changedTouches[0].clientX
+    touchStartRef.current = null
+    if (Math.abs(diff) < 50) return // threshold
+    if (diff > 0) {
+      // Swiped left → next week
+      setCurrentWeekOffset(prev => prev + 1)
+    } else {
+      // Swiped right → previous week
+      setCurrentWeekOffset(prev => prev - 1)
+    }
+  }, [])
+
   const isLoading = completedTasks === null
   
   // Fluid pill refs for filter bar
@@ -575,7 +596,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         </div>
       </div>
 
-      <div className="px-3 py-4">
+      <div className="px-3 py-4" onTouchStart={handleDaySelectorTouchStart} onTouchEnd={handleDaySelectorTouchEnd}>
         <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
           {DAYS.map((day, i) => {
             const dayTasks = getTasksForDay(i)
