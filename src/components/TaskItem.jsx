@@ -9,12 +9,12 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
   const assigneeAvatar = task.is_both ? null : assignedUser?.avatar_url
 
   const assigneeConfig = {
-    'Samen': { bg: 'bg-pastel-lavender', border: 'border-pastel-lavenderDark', text: 'text-pastel-lavenderDark', dot: 'bg-pastel-lavenderDark' },
-    'Bijan': { bg: 'bg-brand-bijan/20', border: 'border-brand-bijan', text: 'text-brand-bijan', dot: 'bg-brand-bijan' },
-    'Esther': { bg: 'bg-brand-esther/20', border: 'border-brand-esther', text: 'text-brand-esther', dot: 'bg-brand-esther' },
+    'Samen': { bg: 'bg-pastel-lavender', text: 'text-pastel-lavenderDark', dot: 'bg-pastel-lavenderDark', borderColor: '#B89DD4' },
+    'Bijan': { bg: 'bg-brand-bijan/20', text: 'text-brand-bijan', dot: 'bg-brand-bijan', borderColor: '#8BB8E8' },
+    'Esther': { bg: 'bg-brand-esther/20', text: 'text-brand-esther', dot: 'bg-brand-esther', borderColor: '#F5A8C0' },
   }
 
-  const config = assigneeConfig[assignee] || { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-500', dot: 'bg-gray-400' }
+  const config = assigneeConfig[assignee] || { bg: 'bg-gray-100', text: 'text-gray-500', dot: 'bg-gray-400', borderColor: '#D1D5DB' }
 
   const [swipeX, setSwipeX] = useState(0)
   const touchStartX = useRef(null)
@@ -107,12 +107,12 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
         className={`task-card group ${isCompleted ? 'opacity-60' : ''}`}
         style={{ 
           borderLeftWidth: '3px', 
-          borderLeftColor: config.border.replace('border-', ''),
+          borderLeftColor: config.borderColor,
           transform: `translateX(${swipeX}px)`,
           transition: swipeX === 0 ? 'transform 0.3s ease-out' : 'none'
         }}
       >
-        <div className="flex items-start gap-3 bg-white p-4 mb-3 rounded-xl">
+        <div className="flex items-start gap-3">
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -153,7 +153,7 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
             </span>
           </div>
 
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>

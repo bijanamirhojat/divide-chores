@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function Login({ onLogin, onSelectUser, users }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
+  const [shaking, setShaking] = useState(false)
   const [showUserSelect, setShowUserSelect] = useState(false)
   const [matchedUsers, setMatchedUsers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -19,6 +20,7 @@ export default function Login({ onLogin, onSelectUser, users }) {
     
     if (!matched) {
       setError('Ongeldige PIN')
+      setShaking(true)
       setPin('')
       return
     }
@@ -30,6 +32,14 @@ export default function Login({ onLogin, onSelectUser, users }) {
       setShowUserSelect(true)
     }
   }
+
+  // Reset shaking after animation completes
+  useEffect(() => {
+    if (shaking) {
+      const timer = setTimeout(() => setShaking(false), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [shaking])
 
   function handleNumberClick(num) {
     if (pin.length < 4) {
@@ -102,17 +112,21 @@ export default function Login({ onLogin, onSelectUser, users }) {
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4 w-full">
-          <div className="flex justify-center gap-2">
+          <div className={`flex justify-center gap-2 ${shaking ? 'animate-shake' : ''}`}>
             {[0, 1, 2, 3].map(i => (
               <div
                 key={i}
                 className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center text-2xl font-light transition-all duration-200 ${
                   pin.length > i
                     ? 'border-pastel-mint bg-pastel-mint/20 text-gray-800'
-                    : 'border-gray-200 text-gray-300'
+                    : error
+                      ? 'border-red-300 text-gray-300'
+                      : 'border-gray-200 text-gray-300'
                 }`}
               >
-                {pin.length > i ? '●' : ''}
+                {pin.length > i && (
+                  <span key={`dot-${pin.length}`} className="animate-scale-in inline-block">●</span>
+                )}
               </div>
             ))}
           </div>

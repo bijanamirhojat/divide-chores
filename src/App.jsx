@@ -151,27 +151,25 @@ export default function App() {
         onOpenMenu={() => setShowMenu(true)}
       />
 
-      {showMenu && (
-        <Menu 
-          onClose={() => setShowMenu(false)}
-          onLogout={handleLogout}
-          currentUser={currentUser}
-          presentationMode={presentationMode}
-          onTogglePresentation={() => setPresentationMode(!presentationMode)}
-          onUpdateUser={handleUpdateUser}
-          onOpenStats={() => {
-            setShowMenu(false)
-            setShowStats(true)
-          }}
-        />
-      )}
+      <Menu 
+        show={showMenu}
+        onClose={() => setShowMenu(false)}
+        onLogout={handleLogout}
+        currentUser={currentUser}
+        presentationMode={presentationMode}
+        onTogglePresentation={() => setPresentationMode(!presentationMode)}
+        onUpdateUser={handleUpdateUser}
+        onOpenStats={() => {
+          setShowMenu(false)
+          setShowStats(true)
+        }}
+      />
 
-      {showStats && (
-        <Stats 
-          onClose={() => setShowStats(false)}
-          users={users}
-        />
-      )}
+      <Stats 
+        show={showStats}
+        onClose={() => setShowStats(false)}
+        users={users}
+      />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import AnimatedOverlay from './AnimatedOverlay'
 
 const PERIODS = [
   { key: 'week', label: 'Week' },
@@ -8,14 +9,14 @@ const PERIODS = [
   { key: 'all', label: 'Alle' },
 ]
 
-export default function Stats({ onClose, users }) {
+export default function Stats({ show, onClose, users }) {
   const [period, setPeriod] = useState('week')
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadStats()
-  }, [period])
+    if (show) loadStats()
+  }, [period, show])
 
   async function loadStats() {
     setLoading(true)
@@ -110,7 +111,7 @@ export default function Stats({ onClose, users }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-50 flex" onClick={onClose}>
+    <AnimatedOverlay show={show} onClose={onClose} direction="up" className="flex items-stretch h-full">
       <div 
         className="bg-white w-full max-w-lg mx-auto h-full overflow-y-auto"
         onClick={e => e.stopPropagation()}
@@ -232,6 +233,6 @@ export default function Stats({ onClose, users }) {
           )}
         </div>
       </div>
-    </div>
+    </AnimatedOverlay>
   )
 }

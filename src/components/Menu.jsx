@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import AnimatedOverlay from './AnimatedOverlay'
 
 const APP_VERSION = import.meta.env.APP_VERSION || '0.0.0'
 const BUILD_ID = import.meta.env.BUILD_ID || 'dev'
 
-export default function Menu({ onClose, onLogout, currentUser, presentationMode, onTogglePresentation, onUpdateUser, onOpenStats }) {
+export default function Menu({ show, onClose, onLogout, currentUser, presentationMode, onTogglePresentation, onUpdateUser, onOpenStats }) {
   const [showHistory, setShowHistory] = useState(false)
   const [completedTasks, setCompletedTasks] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
@@ -92,9 +93,9 @@ export default function Menu({ onClose, onLogout, currentUser, presentationMode,
   const dayNames = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
 
   return (
-    <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-50 flex" onClick={onClose}>
+    <AnimatedOverlay show={show} onClose={onClose} direction="right" className="flex h-full ml-auto w-full max-w-sm">
       <div 
-        className="bg-white w-full max-w-sm ml-auto h-full shadow-soft-lg"
+        className="bg-white w-full h-full shadow-soft-lg overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-gray-100 flex justify-between items-center">
@@ -112,7 +113,7 @@ export default function Menu({ onClose, onLogout, currentUser, presentationMode,
               <div className="relative">
                 <button 
                   onClick={() => setShowAvatarMenu(!showAvatarMenu)}
-                  className="relative group"
+                  className="relative"
                 >
                   <div className="w-14 h-14 rounded-2xl bg-white shadow-soft flex items-center justify-center overflow-hidden">
                     {currentUser?.avatar_url ? (
@@ -123,15 +124,16 @@ export default function Menu({ onClose, onLogout, currentUser, presentationMode,
                       </span>
                     )}
                   </div>
-                  <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {/* Always-visible camera badge for mobile */}
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full shadow-soft flex items-center justify-center border border-gray-100">
+                    <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
                 </button>
                 {showAvatarMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-soft-lg border border-gray-100 overflow-hidden z-10 min-w-[180px]">
+                  <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-soft-lg border border-gray-100 overflow-hidden z-10 min-w-[180px] animate-fade-in">
                     <button
                       onClick={() => {
                         setShowAvatarMenu(false)
@@ -214,63 +216,61 @@ export default function Menu({ onClose, onLogout, currentUser, presentationMode,
         </div>
       </div>
 
-      {showHistory && (
-        <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-[60]" onClick={() => setShowHistory(false)}>
-          <div 
-            className="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto absolute bottom-0 shadow-soft-lg"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="p-5 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white">
-              <h2 className="text-xl font-semibold text-gray-800">Voltooide taken</h2>
-              <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+      <AnimatedOverlay show={showHistory} onClose={() => setShowHistory(false)} direction="up" className="flex items-end h-full" zIndex={60}>
+        <div 
+          className="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto shadow-soft-lg"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="p-5 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white rounded-t-3xl z-10">
+            <h2 className="text-xl font-semibold text-gray-800">Voltooide taken</h2>
+            <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-            <div className="p-5">
-              {loadingHistory ? (
-                <div className="flex items-center justify-center py-12">
-                  <svg className="animate-spin w-6 h-6 text-accent-mint" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <div className="p-5">
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-12">
+                <svg className="animate-spin w-6 h-6 text-accent-mint" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+            ) : completedTasks.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 rounded-2xl mx-auto mb-4 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
-              ) : completedTasks.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 rounded-2xl mx-auto mb-4 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  </div>
-                  <p className="text-gray-400">Nog geen voltooide taken</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {completedTasks.map(ct => (
-                    <div key={ct.id} className="p-4 bg-gray-50 rounded-2xl">
-                      <p className="font-medium text-gray-700">{ct.tasks?.title}</p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-xs text-gray-400">{ct.users?.name}</span>
-                        <span className="text-gray-300">•</span>
-                        <span className="text-xs text-gray-400">
-                          {dayNames[ct.tasks?.day_of_week]} • {new Date(ct.completed_at).toLocaleDateString('nl-NL', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </div>
+                <p className="text-gray-400">Nog geen voltooide taken</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {completedTasks.map(ct => (
+                  <div key={ct.id} className="p-4 bg-gray-50 rounded-2xl">
+                    <p className="font-medium text-gray-700">{ct.tasks?.title}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="text-xs text-gray-400">{ct.users?.name}</span>
+                      <span className="text-gray-300">•</span>
+                      <span className="text-xs text-gray-400">
+                        {dayNames[ct.tasks?.day_of_week]} • {new Date(ct.completed_at).toLocaleDateString('nl-NL', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      )}
-    </div>
+      </AnimatedOverlay>
+    </AnimatedOverlay>
   )
 }

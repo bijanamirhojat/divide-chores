@@ -253,7 +253,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
             <div className="flex items-center justify-center gap-2 md:gap-3 mt-1 md:mt-2">
               <button 
                 onClick={() => setCurrentWeekOffset(prev => prev - 1)}
-                className="p-1.5 md:p-2 hover:bg-white/60 rounded-lg transition-colors"
+                className="p-2.5 md:p-2 hover:bg-white/60 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -262,7 +262,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
               <p className="text-sm md:text-lg text-gray-500 font-medium min-w-[140px] md:min-w-[180px] text-center">{getWeekRange()}</p>
               <button 
                 onClick={() => setCurrentWeekOffset(prev => prev + 1)}
-                className="p-1.5 md:p-2 hover:bg-white/60 rounded-lg transition-colors"
+                className="p-2.5 md:p-2 hover:bg-white/60 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -467,7 +467,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
             <div className="flex items-center justify-center gap-2 mt-0.5">
               <button 
                 onClick={() => setCurrentWeekOffset(prev => prev - 1)}
-                className="p-1 hover:bg-white/50 rounded"
+                className="p-2.5 hover:bg-white/50 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -476,7 +476,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
               <p className="text-gray-400 text-xs">{getWeekRange()}</p>
               <button 
                 onClick={() => setCurrentWeekOffset(prev => prev + 1)}
-                className="p-1 hover:bg-white/50 rounded"
+                className="p-2.5 hover:bg-white/50 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -549,8 +549,8 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         </div>
       </div>
 
-      <div className="px-4 pb-24">
-        <div className="flex items-center justify-between mb-4">
+      <div className="px-4 pb-24" key={`day-${activeDay}-${currentWeekOffset}`}>
+        <div className="flex items-center justify-between mb-4 animate-fade-in">
           <h2 className="text-lg font-semibold text-gray-800">
             {DAY_NAMES[activeDay]}
           </h2>
