@@ -1,9 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { readFileSync } from 'fs'
+import pkg from './package.json'
 
-const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 const buildTimestamp = Date.now()
 const buildId = buildTimestamp.toString(36).slice(-6)
 
