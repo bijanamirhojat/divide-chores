@@ -52,7 +52,7 @@ body {
   }
 
   .day-tab {
-    @apply flex-1 py-3 rounded-2xl text-center text-sm font-medium transition-all duration-300;
+    @apply py-3 rounded-2xl text-center text-sm font-medium transition-all duration-300;
   }
 
   .filter-btn {
@@ -76,4 +76,12 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #D4D4D4;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

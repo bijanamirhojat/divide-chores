@@ -18,26 +18,11 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
   const [resetKey, setResetKey] = useState(0)
 
-  // Swipe gesture state for day-selector bar
-  const touchStartRef = useRef(null)
-
-  const handleDaySelectorTouchStart = useCallback((e) => {
-    touchStartRef.current = e.touches[0].clientX
-  }, [])
-
-  const handleDaySelectorTouchEnd = useCallback((e) => {
-    if (touchStartRef.current === null) return
-    const diff = touchStartRef.current - e.changedTouches[0].clientX
-    touchStartRef.current = null
-    if (Math.abs(diff) < 50) return // threshold
-    if (diff > 0) {
-      // Swiped left → next week
-      setCurrentWeekOffset(prev => prev + 1)
-    } else {
-      // Swiped right → previous week
-      setCurrentWeekOffset(prev => prev - 1)
-    }
-  }, [])
+  // Infinite day-selector scroll
+  const dayScrollRef = useRef(null)
+  const isRecentering = useRef(false)
+  const [dayWidth, setDayWidth] = useState(48)
+  const DAY_GAP = 6 // gap-1.5 = 6px
 
   const isLoading = completedTasks === null
   
@@ -101,6 +86,102 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   }
 
   const weekDates = getWeekDates(currentWeekOffset)
+
+  // Generate 3 weeks of dates for the infinite scroller (prev, current, next)
+  const threeWeekDates = [
+    ...getWeekDates(currentWeekOffset - 1),
+    ...getWeekDates(currentWeekOffset),
+    ...getWeekDates(currentWeekOffset + 1),
+  ]
+
+  // Measure container to calculate exact day button width (7 per screen)
+  useEffect(() => {
+    const el = dayScrollRef.current
+    if (!el) return
+    const measure = () => {
+      // clientWidth = visible area of the scroll container
+      const w = el.clientWidth
+      if (w > 0) setDayWidth(Math.floor((w - 6 * DAY_GAP) / 7))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [isLoading])
+
+  // Measure one "week width" in the scroll container
+  function getWeekScrollWidth() {
+    const el = dayScrollRef.current
+    if (!el || el.children.length < 21) return 0
+    // Distance from first child of prev-week to first child of current-week
+    return el.children[7].offsetLeft - el.children[0].offsetLeft
+  }
+
+  // Center scroll on current week (index 7-13) without animation
+  function centerScroll() {
+    const el = dayScrollRef.current
+    if (!el || el.children.length < 21) return
+    isRecentering.current = true
+    el.style.scrollBehavior = 'auto'
+    // children[7].offsetLeft is relative to el (the scrollable container)
+    el.scrollLeft = el.children[7].offsetLeft
+    // Use rAF to reset after browser has applied the scroll
+    requestAnimationFrame(() => {
+      el.style.scrollBehavior = 'smooth'
+      isRecentering.current = false
+    })
+  }
+
+  // Center on mount, on week change, and after loading finishes
+  useEffect(() => {
+    centerScroll()
+  }, [currentWeekOffset, isLoading])
+
+  // Also center after layout settles (fonts loaded, etc.)
+  useEffect(() => {
+    const t = setTimeout(centerScroll, 50)
+    return () => clearTimeout(t)
+  }, [currentWeekOffset, isLoading])
+
+  // Detect when user scrolls a full week left or right
+  const handleDayScrollEnd = useCallback(() => {
+    if (isRecentering.current) return
+    const el = dayScrollRef.current
+    if (!el || el.children.length < 21) return
+    const weekWidth = getWeekScrollWidth()
+    if (weekWidth === 0) return
+    const centeredLeft = el.children[7].offsetLeft
+    const drift = el.scrollLeft - centeredLeft
+    if (drift > weekWidth * 0.5) {
+      setCurrentWeekOffset(prev => prev + 1)
+    } else if (drift < -weekWidth * 0.5) {
+      setCurrentWeekOffset(prev => prev - 1)
+    }
+  }, [])
+
+  // Use scrollend where supported, fallback to debounced scroll
+  useEffect(() => {
+    const el = dayScrollRef.current
+    if (!el) return
+    let scrollTimer = null
+    const supportsScrollEnd = 'onscrollend' in el
+
+    if (supportsScrollEnd) {
+      const onScrollEnd = () => handleDayScrollEnd()
+      el.addEventListener('scrollend', onScrollEnd)
+      return () => el.removeEventListener('scrollend', onScrollEnd)
+    } else {
+      const onScroll = () => {
+        clearTimeout(scrollTimer)
+        scrollTimer = setTimeout(handleDayScrollEnd, 120)
+      }
+      el.addEventListener('scroll', onScroll, { passive: true })
+      return () => {
+        clearTimeout(scrollTimer)
+        el.removeEventListener('scroll', onScroll)
+      }
+    }
+  }, [handleDayScrollEnd, isLoading])
 
   useEffect(() => {
     loadTasks()
@@ -596,29 +677,43 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         </div>
       </div>
 
-      <div className="px-3 py-4" onTouchStart={handleDaySelectorTouchStart} onTouchEnd={handleDaySelectorTouchEnd}>
-        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-          {DAYS.map((day, i) => {
-            const dayTasks = getTasksForDay(i)
-            const isActive = i === activeDay
-            const isToday = i === currentDayIndex && currentWeekOffset === 0
+      <div className="px-3 py-4">
+        <div 
+          ref={dayScrollRef}
+          className="relative flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide"
+        >
+          {threeWeekDates.map((date, idx) => {
+            const dayOfWeek = idx % 7  // 0=Ma .. 6=Zo
+            const weekIdx = Math.floor(idx / 7) - 1  // -1=prev, 0=current, 1=next
+            const isCurrentWeek = weekIdx === 0
+            const isActive = isCurrentWeek && dayOfWeek === activeDay
+            const isToday = dayOfWeek === currentDayIndex && (currentWeekOffset + weekIdx) === 0
+            const dayTasks = isCurrentWeek ? getTasksForDay(dayOfWeek) : []
             const hasTasks = dayTasks.length > 0
 
             return (
               <button
-                key={i}
-                onClick={() => setActiveDay(i)}
-                className={`day-tab min-w-[48px] ${
+                key={`${currentWeekOffset + weekIdx}-${dayOfWeek}`}
+                onClick={() => {
+                  if (weekIdx !== 0) {
+                    setCurrentWeekOffset(prev => prev + weekIdx)
+                  }
+                  setActiveDay(dayOfWeek)
+                }}
+                style={{ width: dayWidth, minWidth: dayWidth }}
+                className={`day-tab flex-shrink-0 ${
                   isActive 
                     ? 'bg-gradient-to-br from-accent-mint to-pastel-mintDark text-white shadow-soft' 
                     : isToday 
                       ? 'bg-white shadow-card text-gray-700'
-                      : 'bg-white/50 text-gray-500 hover:bg-white'
+                      : isCurrentWeek
+                        ? 'bg-white/50 text-gray-500 hover:bg-white'
+                        : 'bg-white/30 text-gray-300'
                 }`}
               >
-                <p className="text-xs opacity-70">{day}</p>
-                <p className="text-lg font-semibold mt-0.5">{formatDate(weekDates[i])}</p>
-                {hasTasks && !isActive && (
+                <p className="text-xs opacity-70">{DAYS[dayOfWeek]}</p>
+                <p className="text-lg font-semibold mt-0.5">{date.getDate()}</p>
+                {hasTasks && !isActive && isCurrentWeek && (
                   <span className="w-1.5 h-1.5 bg-accent-mint rounded-full mx-auto mt-1.5"></span>
                 )}
               </button>

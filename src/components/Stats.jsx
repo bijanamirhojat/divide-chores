@@ -194,7 +194,7 @@ export default function Stats({ show, onClose, users }) {
   }
 
   return (
-    <AnimatedOverlay show={show} onClose={onClose} direction="up" className="flex items-stretch h-full">
+    <AnimatedOverlay show={show} onClose={onClose} direction="up" className="w-full h-full">
       <div 
         className="bg-white w-full h-full overflow-y-auto"
         onClick={e => e.stopPropagation()}
