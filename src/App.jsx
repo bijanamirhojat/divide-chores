@@ -1,3 +1,4 @@
+// v1.2.0 - meal editing + PWA update banner
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import Login from './components/Login'
