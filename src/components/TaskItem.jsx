@@ -201,7 +201,7 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
 
       {/* Foreground card */}
       <div 
-        className={`task-card group relative ${isCompleted ? 'opacity-60' : ''}`}
+        className="task-card group relative"
         onClick={() => {
           if (isOpen) {
             setSwipeX(0)
@@ -221,7 +221,7 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
           marginBottom: 0,
         }}
       >
-        <div className="flex items-start gap-3">
+        <div className={`flex items-start gap-3 ${isCompleted ? 'opacity-60' : ''}`}>
           <button
             onClick={(e) => {
               e.stopPropagation()

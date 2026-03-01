@@ -14,6 +14,16 @@ if ('serviceWorker' in navigator) {
           }
         })
       })
+
+      // Poll for SW updates every 5 minutes (catches updates while app stays open)
+      setInterval(() => registration.update(), 5 * 60 * 1000)
+
+      // Check for updates when user returns to the app
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          registration.update()
+        }
+      })
     })
   })
 }
