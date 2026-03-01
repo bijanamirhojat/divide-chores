@@ -18,11 +18,11 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
   const [resetKey, setResetKey] = useState(0)
 
-  // Infinite day-selector scroll
-  const dayScrollRef = useRef(null)
-  const isRecentering = useRef(false)
-  const [dayWidth, setDayWidth] = useState(48)
-  const DAY_GAP = 6 // gap-1.5 = 6px
+  // Week scroller (snap-based)
+  const weekScrollRef = useRef(null)
+  const isRecycling = useRef(false)
+  const BUFFER_WEEKS = 5 // 2 before + current + 2 after
+  const CENTER_WEEK = 2  // index of the "current" week in the buffer
 
   const isLoading = completedTasks === null
   
@@ -56,11 +56,11 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const currentDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1
   const [activeDay, setActiveDay] = useState(currentDayIndex)
 
-  // Track previous values for slide direction
+  // Content transition
+  const [slideDirection, setSlideDirection] = useState(null)
   const prevActiveDayRef = useRef(activeDay)
   const prevWeekOffsetRef = useRef(currentWeekOffset)
-  const [slideDirection, setSlideDirection] = useState(null)
-  const slideKeyRef = useRef(0)
+  const contentRef = useRef(null)
 
   useEffect(() => {
     const prevDay = prevActiveDayRef.current
@@ -70,11 +70,13 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     } else if (activeDay !== prevDay) {
       setSlideDirection(activeDay > prevDay ? 'left' : 'right')
     }
-    slideKeyRef.current += 1
     prevActiveDayRef.current = activeDay
     prevWeekOffsetRef.current = currentWeekOffset
+    // Reset slide direction after animation completes
+    const t = setTimeout(() => setSlideDirection(null), 280)
+    return () => clearTimeout(t)
   }, [activeDay, currentWeekOffset])
-  
+
   function getWeekDates(offset = 0) {
     const start = new Date(today)
     start.setDate(today.getDate() - currentDayIndex + (offset * 7))
@@ -87,93 +89,79 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
   const weekDates = getWeekDates(currentWeekOffset)
 
-  // Generate 3 weeks of dates for the infinite scroller (prev, current, next)
-  const threeWeekDates = [
-    ...getWeekDates(currentWeekOffset - 1),
-    ...getWeekDates(currentWeekOffset),
-    ...getWeekDates(currentWeekOffset + 1),
-  ]
-
-  // Measure container to calculate exact day button width (7 per screen)
-  useEffect(() => {
-    const el = dayScrollRef.current
-    if (!el) return
-    const measure = () => {
-      // clientWidth = visible area of the scroll container
-      const w = el.clientWidth
-      if (w > 0) setDayWidth(Math.floor((w - 6 * DAY_GAP) / 7))
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [isLoading])
-
-  // Measure one "week width" in the scroll container
-  function getWeekScrollWidth() {
-    const el = dayScrollRef.current
-    if (!el || el.children.length < 21) return 0
-    // Distance from first child of prev-week to first child of current-week
-    return el.children[7].offsetLeft - el.children[0].offsetLeft
-  }
-
-  // Center scroll on current week (index 7-13) without animation
-  function centerScroll() {
-    const el = dayScrollRef.current
-    if (!el || el.children.length < 21) return
-    isRecentering.current = true
-    el.style.scrollBehavior = 'auto'
-    // children[7].offsetLeft is relative to el (the scrollable container)
-    el.scrollLeft = el.children[7].offsetLeft
-    // Use rAF to reset after browser has applied the scroll
-    requestAnimationFrame(() => {
-      el.style.scrollBehavior = 'smooth'
-      isRecentering.current = false
+  // Generate 5 weeks of dates for the snap scroller
+  const bufferWeeks = []
+  for (let w = 0; w < BUFFER_WEEKS; w++) {
+    const weekOffset = currentWeekOffset + (w - CENTER_WEEK)
+    bufferWeeks.push({
+      offset: weekOffset,
+      dates: getWeekDates(weekOffset),
     })
   }
 
-  // Center on mount, on week change, and after loading finishes
-  useEffect(() => {
-    centerScroll()
-  }, [currentWeekOffset, isLoading])
-
-  // Also center after layout settles (fonts loaded, etc.)
-  useEffect(() => {
-    const t = setTimeout(centerScroll, 50)
-    return () => clearTimeout(t)
-  }, [currentWeekOffset, isLoading])
-
-  // Detect when user scrolls a full week left or right
-  const handleDayScrollEnd = useCallback(() => {
-    if (isRecentering.current) return
-    const el = dayScrollRef.current
-    if (!el || el.children.length < 21) return
-    const weekWidth = getWeekScrollWidth()
+  // Center scroll on the CENTER_WEEK (instant, no animation)
+  const centerWeekScroll = useCallback(() => {
+    const el = weekScrollRef.current
+    if (!el) return
+    const weekWidth = el.clientWidth
     if (weekWidth === 0) return
-    const centeredLeft = el.children[7].offsetLeft
-    const drift = el.scrollLeft - centeredLeft
-    if (drift > weekWidth * 0.5) {
-      setCurrentWeekOffset(prev => prev + 1)
-    } else if (drift < -weekWidth * 0.5) {
-      setCurrentWeekOffset(prev => prev - 1)
+    isRecycling.current = true
+    // Temporarily disable snap so we can reposition instantly
+    el.style.scrollSnapType = 'none'
+    el.scrollLeft = CENTER_WEEK * weekWidth
+    // Re-enable snap after browser applies the position
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.scrollSnapType = 'x mandatory'
+        isRecycling.current = false
+      })
+    })
+  }, [])
+
+  // Center on mount and when week offset changes
+  useEffect(() => {
+    centerWeekScroll()
+  }, [currentWeekOffset, isLoading, centerWeekScroll])
+
+  // Re-center after layout settles and on resize
+  useEffect(() => {
+    const t = setTimeout(centerWeekScroll, 50)
+    const el = weekScrollRef.current
+    if (!el) return () => clearTimeout(t)
+    const ro = new ResizeObserver(() => centerWeekScroll())
+    ro.observe(el)
+    return () => { clearTimeout(t); ro.disconnect() }
+  }, [currentWeekOffset, isLoading, centerWeekScroll])
+
+  // Handle scroll-snap settling: detect which week snapped into view
+  const handleWeekScrollEnd = useCallback(() => {
+    if (isRecycling.current) return
+    const el = weekScrollRef.current
+    if (!el) return
+    const weekWidth = el.clientWidth
+    if (weekWidth === 0) return
+    const snappedIndex = Math.round(el.scrollLeft / weekWidth)
+    const drift = snappedIndex - CENTER_WEEK
+    if (drift !== 0) {
+      setCurrentWeekOffset(prev => prev + drift)
     }
   }, [])
 
-  // Use scrollend where supported, fallback to debounced scroll
+  // Bind scrollend (or debounced scroll fallback) to detect week changes
   useEffect(() => {
-    const el = dayScrollRef.current
+    const el = weekScrollRef.current
     if (!el) return
     let scrollTimer = null
     const supportsScrollEnd = 'onscrollend' in el
 
     if (supportsScrollEnd) {
-      const onScrollEnd = () => handleDayScrollEnd()
+      const onScrollEnd = () => handleWeekScrollEnd()
       el.addEventListener('scrollend', onScrollEnd)
       return () => el.removeEventListener('scrollend', onScrollEnd)
     } else {
       const onScroll = () => {
         clearTimeout(scrollTimer)
-        scrollTimer = setTimeout(handleDayScrollEnd, 120)
+        scrollTimer = setTimeout(handleWeekScrollEnd, 150)
       }
       el.addEventListener('scroll', onScroll, { passive: true })
       return () => {
@@ -181,7 +169,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         el.removeEventListener('scroll', onScroll)
       }
     }
-  }, [handleDayScrollEnd, isLoading])
+  }, [handleWeekScrollEnd, isLoading])
 
   useEffect(() => {
     loadTasks()
@@ -311,11 +299,6 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   }
 
   async function handleDeleteTask(task) {
-    if (!confirm('Weet je zeker dat je deze taak wilt verwijderen?')) {
-      loadTasks()
-      return
-    }
-    
     const { error } = await supabase
       .from('tasks')
       .delete()
@@ -679,51 +662,72 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
       <div className="px-3 py-4">
         <div 
-          ref={dayScrollRef}
-          className="relative flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide"
+          ref={weekScrollRef}
+          className="flex overflow-x-auto pb-2 scrollbar-hide"
+          style={{ 
+            scrollSnapType: 'x mandatory', 
+            WebkitOverflowScrolling: 'touch',
+          }}
         >
-          {threeWeekDates.map((date, idx) => {
-            const dayOfWeek = idx % 7  // 0=Ma .. 6=Zo
-            const weekIdx = Math.floor(idx / 7) - 1  // -1=prev, 0=current, 1=next
-            const isCurrentWeek = weekIdx === 0
-            const isActive = isCurrentWeek && dayOfWeek === activeDay
-            const isToday = dayOfWeek === currentDayIndex && (currentWeekOffset + weekIdx) === 0
-            const dayTasks = isCurrentWeek ? getTasksForDay(dayOfWeek) : []
-            const hasTasks = dayTasks.length > 0
-
+          {bufferWeeks.map((week) => {
+            const isCurrentWeek = week.offset === currentWeekOffset
             return (
-              <button
-                key={`${currentWeekOffset + weekIdx}-${dayOfWeek}`}
-                onClick={() => {
-                  if (weekIdx !== 0) {
-                    setCurrentWeekOffset(prev => prev + weekIdx)
-                  }
-                  setActiveDay(dayOfWeek)
-                }}
-                style={{ width: dayWidth, minWidth: dayWidth }}
-                className={`day-tab flex-shrink-0 ${
-                  isActive 
-                    ? 'bg-gradient-to-br from-accent-mint to-pastel-mintDark text-white shadow-soft' 
-                    : isToday 
-                      ? 'bg-white shadow-card text-gray-700'
-                      : isCurrentWeek
-                        ? 'bg-white/50 text-gray-500 hover:bg-white'
-                        : 'bg-white/30 text-gray-300'
-                }`}
+              <div
+                key={`week-${week.offset}`}
+                className="flex gap-1.5 flex-shrink-0 min-w-full"
+                style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
               >
-                <p className="text-xs opacity-70">{DAYS[dayOfWeek]}</p>
-                <p className="text-lg font-semibold mt-0.5">{date.getDate()}</p>
-                {hasTasks && !isActive && isCurrentWeek && (
-                  <span className="w-1.5 h-1.5 bg-accent-mint rounded-full mx-auto mt-1.5"></span>
-                )}
-              </button>
+                {week.dates.map((date, dayIdx) => {
+                  const isActive = isCurrentWeek && dayIdx === activeDay
+                  const isToday = dayIdx === currentDayIndex && week.offset === 0
+                  const dayTasks = isCurrentWeek ? getTasksForDay(dayIdx) : []
+                  const hasTasks = dayTasks.length > 0
+
+                  return (
+                    <button
+                      key={dayIdx}
+                      onClick={() => {
+                        if (!isCurrentWeek) {
+                          setCurrentWeekOffset(week.offset)
+                        }
+                        setActiveDay(dayIdx)
+                      }}
+                      className={`day-tab flex-1 flex-shrink-0 ${
+                        isActive 
+                          ? 'bg-gradient-to-br from-accent-mint to-pastel-mintDark text-white shadow-soft' 
+                          : isToday 
+                            ? 'bg-white shadow-card text-gray-700'
+                            : isCurrentWeek
+                              ? 'bg-white/50 text-gray-500 active:bg-white/80'
+                              : 'bg-white/30 text-gray-300'
+                      }`}
+                    >
+                      <p className="text-xs opacity-70">{DAYS[dayIdx]}</p>
+                      <p className="text-lg font-semibold mt-0.5">{date.getDate()}</p>
+                      {hasTasks && !isActive && isCurrentWeek && (
+                        <span className="w-1.5 h-1.5 bg-accent-mint rounded-full mx-auto mt-1.5"></span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             )
           })}
         </div>
       </div>
 
-      <div className="px-4 pb-24" key={`day-${activeDay}-${currentWeekOffset}-${slideKeyRef.current}`}>
-        <div className={slideDirection === 'left' ? 'animate-slide-content-left' : slideDirection === 'right' ? 'animate-slide-content-right' : 'animate-fade-in'}>
+      <div className="px-4 pb-24 overflow-hidden">
+        <div 
+          ref={contentRef}
+          className={`${
+            slideDirection === 'left' 
+              ? 'animate-slide-content-left' 
+              : slideDirection === 'right' 
+                ? 'animate-slide-content-right' 
+                : ''
+          }`}
+          key={`day-${activeDay}-${currentWeekOffset}`}
+        >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">
             {DAY_NAMES[activeDay]}
@@ -760,7 +764,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
           </div>
         )}
         
-        <div className="space-y-3">
+        <div>
           {getTasksForDay(activeDay).map(task => (
             <TaskItem
               key={task.id}
