@@ -1,12 +1,65 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { hasBiometricSetup, authenticateWithBiometric } from '../lib/biometricAuth'
 
-export default function Login({ onLogin, onSelectUser, users }) {
+export default function Login({ onLogin, onSelectUser, users, onBiometricLogin }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [shaking, setShaking] = useState(false)
   const [showUserSelect, setShowUserSelect] = useState(false)
   const [matchedUsers, setMatchedUsers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [biometricAttempted, setBiometricAttempted] = useState(false)
+
+  // Check if biometric login is available on mount
+  useEffect(() => {
+    const hasSetup = hasBiometricSetup()
+    setBiometricAvailable(hasSetup)
+  }, [])
+
+  const handleBiometricLogin = useCallback(async () => {
+    if (isLoading || biometricAttempted) return
+    setBiometricAttempted(true)
+    setIsLoading(true)
+    setError('')
+
+    try {
+      const result = await authenticateWithBiometric()
+      if (result) {
+        const matched = await onLogin(result.pin)
+        if (matched) {
+          if (matched.length === 1) {
+            onSelectUser(matched[0])
+          } else {
+            // If multiple users share the PIN, try to match by stored userId
+            const storedUser = matched.find(u => u.id === result.userId)
+            if (storedUser) {
+              onSelectUser(storedUser)
+            } else {
+              setMatchedUsers(matched)
+              setShowUserSelect(true)
+            }
+          }
+          setIsLoading(false)
+          return
+        }
+      }
+    } catch {
+      // Biometric failed or was cancelled
+    }
+
+    setIsLoading(false)
+    // Don't show error — just let user use PIN
+  }, [isLoading, biometricAttempted, onLogin, onSelectUser])
+
+  // Auto-trigger biometric on mount if available
+  useEffect(() => {
+    if (biometricAvailable && !biometricAttempted && users.length > 0) {
+      // Small delay to let the UI render first
+      const timer = setTimeout(() => handleBiometricLogin(), 300)
+      return () => clearTimeout(timer)
+    }
+  }, [biometricAvailable, biometricAttempted, users, handleBiometricLogin])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -53,6 +106,10 @@ export default function Login({ onLogin, onSelectUser, users }) {
 
   function handleSelectUser(user) {
     onSelectUser(user)
+  }
+
+  function handleRetryBiometric() {
+    setBiometricAttempted(false)
   }
 
   if (showUserSelect) {
@@ -188,9 +245,24 @@ export default function Login({ onLogin, onSelectUser, users }) {
           </button>
         </form>
         
-        <p className="mt-4 text-gray-400 text-xs text-center">
-          Tik je pincode in
-        </p>
+        {biometricAvailable && (
+          <button
+            onClick={handleRetryBiometric}
+            disabled={isLoading}
+            className="mt-4 flex flex-col items-center gap-1.5 text-gray-400 hover:text-accent-mint transition-colors disabled:opacity-50"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+            </svg>
+            <span className="text-xs font-medium">Gebruik Face ID</span>
+          </button>
+        )}
+        
+        {!biometricAvailable && (
+          <p className="mt-4 text-gray-400 text-xs text-center">
+            Tik je pincode in
+          </p>
+        )}
       </div>
     </div>
   )

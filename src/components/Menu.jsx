@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush } from '../lib/pushSubscription'
+import { isBiometricAvailable, hasBiometricSetup, registerBiometric, removeBiometric } from '../lib/biometricAuth'
 import AnimatedOverlay from './AnimatedOverlay'
+import Toggle from './Toggle'
 
 const APP_VERSION = import.meta.env.APP_VERSION || '0.0.0'
 const BUILD_ID = import.meta.env.BUILD_ID || 'dev'
@@ -14,10 +16,19 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [notificationsLoading, setNotificationsLoading] = useState(false)
   const [notificationsSupported, setNotificationsSupported] = useState(true)
+  const [biometricEnabled, setBiometricEnabled] = useState(false)
+  const [biometricLoading, setBiometricLoading] = useState(false)
+  const [biometricSupported, setBiometricSupported] = useState(false)
+  const [showPinEntry, setShowPinEntry] = useState(false)
+  const [pinEntryValue, setPinEntryValue] = useState('')
+  const [pinEntryError, setPinEntryError] = useState('')
+  const [pinEntryShaking, setPinEntryShaking] = useState(false)
+  const [pinEntryLoading, setPinEntryLoading] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
     checkNotificationStatus()
+    checkBiometricStatus()
   }, [])
 
   async function checkNotificationStatus() {
@@ -28,6 +39,12 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
     const status = await getSubscriptionStatus()
     setNotificationsEnabled(status === 'subscribed')
     if (status === 'denied') setNotificationsSupported(false)
+  }
+
+  async function checkBiometricStatus() {
+    const available = await isBiometricAvailable()
+    setBiometricSupported(available)
+    setBiometricEnabled(hasBiometricSetup())
   }
 
   async function handleToggleNotifications() {
@@ -50,6 +67,85 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
     } finally {
       setNotificationsLoading(false)
     }
+  }
+
+  async function handleToggleBiometric() {
+    if (biometricLoading) return
+    if (biometricEnabled) {
+      setBiometricLoading(true)
+      try {
+        removeBiometric()
+        setBiometricEnabled(false)
+      } catch (err) {
+        console.error('Biometric toggle failed:', err)
+        setBiometricEnabled(hasBiometricSetup())
+      } finally {
+        setBiometricLoading(false)
+      }
+    } else {
+      // Open in-app PIN entry
+      setPinEntryValue('')
+      setPinEntryError('')
+      setShowPinEntry(true)
+    }
+  }
+
+  async function handlePinEntrySubmit(pin) {
+    setPinEntryLoading(true)
+    setPinEntryError('')
+    try {
+      // Verify the PIN is valid by checking against Supabase
+      const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('pin', pin)
+        .eq('id', currentUser.id)
+        .single()
+
+      if (!data) {
+        setPinEntryError('Ongeldige PIN')
+        setPinEntryShaking(true)
+        setPinEntryValue('')
+        setTimeout(() => setPinEntryShaking(false), 500)
+        setPinEntryLoading(false)
+        return
+      }
+
+      await registerBiometric(currentUser.id, currentUser.name, pin)
+      setBiometricEnabled(true)
+      setShowPinEntry(false)
+      setPinEntryValue('')
+    } catch (err) {
+      console.error('Biometric setup failed:', err)
+      setPinEntryError('Er ging iets mis')
+      setPinEntryValue('')
+      setBiometricEnabled(hasBiometricSetup())
+    } finally {
+      setPinEntryLoading(false)
+    }
+  }
+
+  function handlePinNumberClick(num) {
+    if (pinEntryValue.length < 4) {
+      const newPin = pinEntryValue + num
+      setPinEntryValue(newPin)
+      setPinEntryError('')
+      // Auto-submit when 4 digits entered
+      if (newPin.length === 4) {
+        handlePinEntrySubmit(newPin)
+      }
+    }
+  }
+
+  function handlePinDelete() {
+    setPinEntryValue(pinEntryValue.slice(0, -1))
+    setPinEntryError('')
+  }
+
+  function handlePinEntryClose() {
+    setShowPinEntry(false)
+    setPinEntryValue('')
+    setPinEntryError('')
   }
 
   async function loadHistory() {
@@ -260,31 +356,42 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
             ))}
           </div>
 
-          {notificationsSupported && (
-            <button
-              onClick={handleToggleNotifications}
-              className="w-full p-4 rounded-2xl text-left flex items-center gap-4 hover:shadow-soft transition-all duration-200 active:bg-gray-50"
-            >
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-gray-600">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-              </div>
-              <span className="font-medium text-gray-700">Meldingen</span>
-              <span className="ml-auto">
-                {notificationsLoading ? (
-                  <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          {/* Toggle settings section */}
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider px-1 mb-2">Instellingen</p>
+
+            {notificationsSupported && (
+              <div className="flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 transition-colors">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-gray-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
-                ) : (
-                  <span className={`block w-11 h-6 rounded-full transition-colors duration-200 ${notificationsEnabled ? 'bg-accent-mint' : 'bg-gray-200'}`}>
-                    <span className={`block w-5 h-5 mt-0.5 rounded-full bg-white shadow transition-transform duration-200 ${notificationsEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-                  </span>
-                )}
-              </span>
-            </button>
-          )}
+                </div>
+                <span className="font-medium text-gray-700 flex-1">Meldingen</span>
+                <Toggle
+                  enabled={notificationsEnabled}
+                  loading={notificationsLoading}
+                  onChange={handleToggleNotifications}
+                />
+              </div>
+            )}
+
+            {biometricSupported && (
+              <div className="flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 transition-colors">
+                <div className="w-10 h-10 rounded-xl bg-pastel-lavender flex items-center justify-center text-gray-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+                  </svg>
+                </div>
+                <span className="font-medium text-gray-700 flex-1">Face ID</span>
+                <Toggle
+                  enabled={biometricEnabled}
+                  loading={biometricLoading}
+                  onChange={handleToggleBiometric}
+                />
+              </div>
+            )}
+          </div>
 
           <button
             onClick={onLogout}
@@ -305,6 +412,91 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
           </div>
         </div>
       </div>
+
+      <AnimatedOverlay show={showPinEntry} onClose={handlePinEntryClose} direction="up" className="flex items-end h-full" zIndex={60}>
+        <div 
+          className="bg-white rounded-t-3xl w-full shadow-soft-lg"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-gray-200" />
+          </div>
+
+          <div className="p-5 pt-3">
+            <div className="text-center mb-5">
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-pastel-mint to-pastel-lavender rounded-2xl mb-3 shadow-soft">
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-800">Voer je PIN in</h2>
+              <p className="text-gray-500 mt-1 text-sm">Om Face ID in te stellen</p>
+            </div>
+
+            <div className={`flex justify-center gap-2 mb-4 ${pinEntryShaking ? 'animate-shake' : ''}`}>
+              {[0, 1, 2, 3].map(i => (
+                <div
+                  key={i}
+                  className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center text-2xl font-light transition-all duration-200 ${
+                    pinEntryValue.length > i
+                      ? 'border-pastel-mint bg-pastel-mint/20 text-gray-800'
+                      : pinEntryError
+                        ? 'border-red-300 text-gray-300'
+                        : 'border-gray-200 text-gray-300'
+                  }`}
+                >
+                  {pinEntryValue.length > i && (
+                    <span className="animate-scale-in inline-block">●</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {pinEntryError && (
+              <div className="flex items-center justify-center gap-2 text-red-500 text-sm bg-red-50 py-2 px-4 rounded-xl mb-4">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {pinEntryError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, null, 0, 'del'].map((item, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={pinEntryLoading || (item === null)}
+                  onClick={() => {
+                    if (item === 'del') handlePinDelete()
+                    else if (item !== null) handlePinNumberClick(String(item))
+                  }}
+                  className={`h-12 rounded-xl text-xl font-medium transition-all duration-150 active:scale-95 ${
+                    item === null
+                      ? 'invisible'
+                      : item === 'del'
+                      ? 'bg-gray-100 text-gray-600'
+                      : 'bg-white shadow-soft text-gray-700 hover:bg-gray-50'
+                  } ${pinEntryLoading ? 'opacity-50' : ''}`}
+                >
+                  {item === 'del' ? (
+                    <svg className="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19.5a2 2 0 002-2V5a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z" />
+                    </svg>
+                  ) : item}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handlePinEntryClose}
+              className="w-full mt-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Annuleren
+            </button>
+          </div>
+        </div>
+      </AnimatedOverlay>
 
       <AnimatedOverlay show={showHistory} onClose={() => setShowHistory(false)} direction="up" className="flex items-end h-full" zIndex={60}>
         <div 
