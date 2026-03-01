@@ -29,7 +29,11 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
   const AUTO_DELETE = -140
   const RESISTANCE = 0.3
 
+  const isSwipingRef = useRef(false)
+
   useEffect(() => {
+    // Don't reset if this card is the one actively being swiped
+    if (isSwipingRef.current) return
     setSwipeX(0)
     setIsOpen(false)
     gestureRef.current = null
@@ -60,6 +64,7 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
       gestureRef.current = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
       if (gestureRef.current === 'horizontal') {
+        isSwipingRef.current = true
         onDeleteAttempt?.()
       }
     }
@@ -85,9 +90,11 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
 
     if (gestureRef.current !== 'horizontal') {
       gestureRef.current = null
+      isSwipingRef.current = false
       return
     }
     gestureRef.current = null
+    isSwipingRef.current = false
 
     const x = currentSwipeRef.current
 

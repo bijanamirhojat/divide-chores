@@ -583,8 +583,8 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   }
 
   return (
-    <div className="min-h-screen bg-pastel-cream overflow-x-hidden">
-      <div className="sticky top-0 z-40 glass border-b border-gray-100">
+    <div className="h-screen flex flex-col bg-pastel-cream overflow-x-hidden">
+      <div className="flex-shrink-0 z-40 glass border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
           <button onClick={onOpenMenu} className="p-2.5 rounded-xl hover:bg-white/60 transition-colors">
             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -667,6 +667,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
           style={{ 
             scrollSnapType: 'x mandatory', 
             WebkitOverflowScrolling: 'touch',
+            overscrollBehaviorX: 'contain',
           }}
         >
           {bufferWeeks.map((week) => {
@@ -716,7 +717,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         </div>
       </div>
 
-      <div className="px-4 pb-24 overflow-hidden">
+      <div className="flex-1 overflow-y-auto px-4 pb-24" style={{ overscrollBehaviorY: 'contain' }}>
         <div 
           ref={contentRef}
           className={`${
