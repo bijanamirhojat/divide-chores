@@ -1,4 +1,4 @@
-// v1.3.0 - biometric auth (Face ID / Touch ID) + meal editing + PWA update banner
+// v1.4.0 - wishlist feature + biometric auth (Face ID / Touch ID) + meal editing + PWA update banner
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import { resubscribeIfNeeded } from './lib/pushSubscription'
@@ -8,6 +8,7 @@ import WeekView from './components/WeekView'
 import TaskModal from './components/TaskModal'
 import Menu from './components/Menu'
 import Stats from './components/Stats'
+import Wishlist from './components/Wishlist'
 import Confetti from './components/Confetti'
 
 function UpdateBanner() {
@@ -102,6 +103,7 @@ export default function App() {
   const [users, setUsers] = useState([])
   const [showMenu, setShowMenu] = useState(false)
   const [showStats, setShowStats] = useState(false)
+  const [showWishlist, setShowWishlist] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [showUpdateBanner, setShowUpdateBanner] = useState(false)
   const [showBiometricSetup, setShowBiometricSetup] = useState(false)
@@ -293,11 +295,22 @@ export default function App() {
           setShowMenu(false)
           setShowStats(true)
         }}
+        onOpenWishlist={() => {
+          setShowMenu(false)
+          setShowWishlist(true)
+        }}
       />
 
       <Stats 
         show={showStats}
         onClose={() => setShowStats(false)}
+        users={users}
+      />
+
+      <Wishlist
+        show={showWishlist}
+        onClose={() => setShowWishlist(false)}
+        currentUser={currentUser}
         users={users}
       />
     </div>

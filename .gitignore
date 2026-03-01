@@ -3,5 +3,5 @@ dist
 .DS_Store
 *.local
 .env
-supabase-setup.sql
+*.sql
 supabase-edge-functions/
