@@ -52,12 +52,24 @@ body {
   }
 
   .day-tab {
-    @apply py-3 rounded-2xl text-center text-sm font-medium transition-all duration-300;
+    @apply py-2.5 rounded-2xl text-center text-sm font-medium transition-colors duration-200;
   }
 
   .filter-btn {
     @apply flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-200;
   }
+}
+
+/* Carousel scroll snap */
+.carousel-snap {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.carousel-page {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 ::-webkit-scrollbar {

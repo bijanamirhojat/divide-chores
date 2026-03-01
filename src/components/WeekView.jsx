@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import TaskItem from './TaskItem'
 import TaskModal from './TaskModal'
@@ -17,12 +17,6 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const [filter, setFilter] = useState('all')
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
   const [resetKey, setResetKey] = useState(0)
-
-  // Infinite day-selector scroll
-  const dayScrollRef = useRef(null)
-  const isRecentering = useRef(false)
-  const [dayWidth, setDayWidth] = useState(48)
-  const DAY_GAP = 6 // gap-1.5 = 6px
 
   const isLoading = completedTasks === null
   
@@ -56,24 +50,42 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const currentDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1
   const [activeDay, setActiveDay] = useState(currentDayIndex)
 
-  // Track previous values for slide direction
-  const prevActiveDayRef = useRef(activeDay)
-  const prevWeekOffsetRef = useRef(currentWeekOffset)
-  const [slideDirection, setSlideDirection] = useState(null)
-  const slideKeyRef = useRef(0)
+  // === CAROUSEL SYSTEM ===
+  // We render 3 weeks (21 days) as full-width pages in a horizontal carousel.
+  // The carousel uses CSS scroll-snap for smooth native-feeling navigation.
+  // The middle week (pages 7-13) is the "current" week.
+  // When the user scrolls into the prev/next week territory, we recycle:
+  // shift weekOffset and instantly reposition to the center.
+  
+  const carouselRef = useRef(null)
+  const isRecycling = useRef(false)
+  const programmaticScroll = useRef(false)
+  const [pageWidth, setPageWidth] = useState(0)
+  
+  // Day tab pill indicator
+  const dayTabContainerRef = useRef(null)
+  const dayTabRefs = useRef({})
+  const [dayPillStyle, setDayPillStyle] = useState(null)
+
+  const updateDayPill = useCallback(() => {
+    const container = dayTabContainerRef.current
+    const btn = dayTabRefs.current[activeDay]
+    if (!container || !btn) return
+    const containerRect = container.getBoundingClientRect()
+    const btnRect = btn.getBoundingClientRect()
+    setDayPillStyle({
+      left: btnRect.left - containerRect.left,
+      width: btnRect.width,
+    })
+  }, [activeDay])
+
+  useLayoutEffect(() => {
+    updateDayPill()
+  }, [updateDayPill, isLoading])
 
   useEffect(() => {
-    const prevDay = prevActiveDayRef.current
-    const prevWeek = prevWeekOffsetRef.current
-    if (currentWeekOffset !== prevWeek) {
-      setSlideDirection(currentWeekOffset > prevWeek ? 'left' : 'right')
-    } else if (activeDay !== prevDay) {
-      setSlideDirection(activeDay > prevDay ? 'left' : 'right')
-    }
-    slideKeyRef.current += 1
-    prevActiveDayRef.current = activeDay
-    prevWeekOffsetRef.current = currentWeekOffset
-  }, [activeDay, currentWeekOffset])
+    requestAnimationFrame(updateDayPill)
+  }, [updateDayPill, isLoading])
   
   function getWeekDates(offset = 0) {
     const start = new Date(today)
@@ -87,21 +99,24 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
   const weekDates = getWeekDates(currentWeekOffset)
 
-  // Generate 3 weeks of dates for the infinite scroller (prev, current, next)
-  const threeWeekDates = [
+  // Generate 3 weeks of dates for the carousel pages
+  const threeWeekDates = useMemo(() => [
     ...getWeekDates(currentWeekOffset - 1),
     ...getWeekDates(currentWeekOffset),
     ...getWeekDates(currentWeekOffset + 1),
-  ]
+  ], [currentWeekOffset])
 
-  // Measure container to calculate exact day button width (7 per screen)
+  // The active page index within the 21-page carousel
+  // Middle week starts at index 7, so activeDay 0 = page 7
+  const activePageIndex = 7 + activeDay
+
+  // Measure carousel page width
   useEffect(() => {
-    const el = dayScrollRef.current
+    const el = carouselRef.current
     if (!el) return
     const measure = () => {
-      // clientWidth = visible area of the scroll container
       const w = el.clientWidth
-      if (w > 0) setDayWidth(Math.floor((w - 6 * DAY_GAP) / 7))
+      if (w > 0) setPageWidth(w)
     }
     measure()
     const ro = new ResizeObserver(measure)
@@ -109,79 +124,123 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     return () => ro.disconnect()
   }, [isLoading])
 
-  // Measure one "week width" in the scroll container
-  function getWeekScrollWidth() {
-    const el = dayScrollRef.current
-    if (!el || el.children.length < 21) return 0
-    // Distance from first child of prev-week to first child of current-week
-    return el.children[7].offsetLeft - el.children[0].offsetLeft
-  }
-
-  // Center scroll on current week (index 7-13) without animation
-  function centerScroll() {
-    const el = dayScrollRef.current
-    if (!el || el.children.length < 21) return
-    isRecentering.current = true
+  // Center carousel on the active page (instant, no animation)
+  const centerCarousel = useCallback(() => {
+    const el = carouselRef.current
+    if (!el || !pageWidth) return
+    isRecycling.current = true
     el.style.scrollBehavior = 'auto'
-    // children[7].offsetLeft is relative to el (the scrollable container)
-    el.scrollLeft = el.children[7].offsetLeft
-    // Use rAF to reset after browser has applied the scroll
+    el.scrollLeft = activePageIndex * pageWidth
     requestAnimationFrame(() => {
-      el.style.scrollBehavior = 'smooth'
-      isRecentering.current = false
+      requestAnimationFrame(() => {
+        el.style.scrollBehavior = ''
+        isRecycling.current = false
+      })
     })
-  }
+  }, [activePageIndex, pageWidth])
 
-  // Center on mount, on week change, and after loading finishes
+  // Center on mount, week change, and after loading
   useEffect(() => {
-    centerScroll()
-  }, [currentWeekOffset, isLoading])
+    centerCarousel()
+  }, [centerCarousel, isLoading])
 
-  // Also center after layout settles (fonts loaded, etc.)
+  // Safety net for layout settling
   useEffect(() => {
-    const t = setTimeout(centerScroll, 50)
+    const t = setTimeout(centerCarousel, 50)
     return () => clearTimeout(t)
-  }, [currentWeekOffset, isLoading])
+  }, [centerCarousel, isLoading])
 
-  // Detect when user scrolls a full week left or right
-  const handleDayScrollEnd = useCallback(() => {
-    if (isRecentering.current) return
-    const el = dayScrollRef.current
-    if (!el || el.children.length < 21) return
-    const weekWidth = getWeekScrollWidth()
-    if (weekWidth === 0) return
-    const centeredLeft = el.children[7].offsetLeft
-    const drift = el.scrollLeft - centeredLeft
-    if (drift > weekWidth * 0.5) {
-      setCurrentWeekOffset(prev => prev + 1)
-    } else if (drift < -weekWidth * 0.5) {
-      setCurrentWeekOffset(prev => prev - 1)
+  // Handle carousel scroll - detect which page is in view and update activeDay
+  const handleCarouselScroll = useCallback(() => {
+    if (isRecycling.current || programmaticScroll.current) return
+    const el = carouselRef.current
+    if (!el || !pageWidth) return
+
+    const scrollPos = el.scrollLeft
+    const currentPage = Math.round(scrollPos / pageWidth)
+    
+    // Clamp to valid range (0-20)
+    const clampedPage = Math.max(0, Math.min(20, currentPage))
+    const weekIdx = Math.floor(clampedPage / 7) - 1  // -1=prev, 0=current, 1=next
+    const dayIdx = clampedPage % 7
+
+    // Update active day indicator for any visible page (including prev/next week)
+    if (dayIdx !== activeDay) {
+      setActiveDay(dayIdx)
     }
-  }, [])
+  }, [pageWidth, activeDay])
 
-  // Use scrollend where supported, fallback to debounced scroll
+  // Handle scroll end - this is where we do week recycling if needed
+  const handleCarouselScrollEnd = useCallback(() => {
+    if (isRecycling.current || programmaticScroll.current) return
+    const el = carouselRef.current
+    if (!el || !pageWidth) return
+
+    const scrollPos = el.scrollLeft
+    const currentPage = Math.round(scrollPos / pageWidth)
+    const weekIdx = Math.floor(currentPage / 7) - 1
+    const dayIdx = currentPage % 7
+
+    if (weekIdx !== 0) {
+      // User has scrolled into prev or next week - recycle!
+      isRecycling.current = true
+      setCurrentWeekOffset(prev => prev + weekIdx)
+      setActiveDay(dayIdx)
+      // The centerCarousel effect will fire and reposition
+    } else if (dayIdx !== activeDay) {
+      setActiveDay(dayIdx)
+    }
+  }, [pageWidth, activeDay])
+
+  // Attach scroll listeners to carousel
   useEffect(() => {
-    const el = dayScrollRef.current
+    const el = carouselRef.current
     if (!el) return
     let scrollTimer = null
     const supportsScrollEnd = 'onscrollend' in el
 
-    if (supportsScrollEnd) {
-      const onScrollEnd = () => handleDayScrollEnd()
-      el.addEventListener('scrollend', onScrollEnd)
-      return () => el.removeEventListener('scrollend', onScrollEnd)
-    } else {
-      const onScroll = () => {
+    // Lightweight scroll handler for real-time day tracking
+    const onScroll = () => {
+      handleCarouselScroll()
+      if (!supportsScrollEnd) {
         clearTimeout(scrollTimer)
-        scrollTimer = setTimeout(handleDayScrollEnd, 120)
-      }
-      el.addEventListener('scroll', onScroll, { passive: true })
-      return () => {
-        clearTimeout(scrollTimer)
-        el.removeEventListener('scroll', onScroll)
+        scrollTimer = setTimeout(handleCarouselScrollEnd, 80)
       }
     }
-  }, [handleDayScrollEnd, isLoading])
+
+    el.addEventListener('scroll', onScroll, { passive: true })
+
+    if (supportsScrollEnd) {
+      const onScrollEnd = () => handleCarouselScrollEnd()
+      el.addEventListener('scrollend', onScrollEnd)
+      return () => {
+        el.removeEventListener('scroll', onScroll)
+        el.removeEventListener('scrollend', onScrollEnd)
+      }
+    }
+
+    return () => {
+      clearTimeout(scrollTimer)
+      el.removeEventListener('scroll', onScroll)
+    }
+  }, [handleCarouselScroll, handleCarouselScrollEnd, isLoading])
+
+  // Navigate to a specific day (called when clicking day tabs)
+  const navigateToDay = useCallback((dayIdx) => {
+    const el = carouselRef.current
+    if (!el || !pageWidth) return
+    const targetPage = 7 + dayIdx
+    programmaticScroll.current = true
+    setActiveDay(dayIdx)
+    el.scrollTo({
+      left: targetPage * pageWidth,
+      behavior: 'smooth'
+    })
+    // Clear programmatic flag after animation completes
+    setTimeout(() => {
+      programmaticScroll.current = false
+    }, 400)
+  }, [pageWidth])
 
   useEffect(() => {
     loadTasks()
@@ -311,11 +370,6 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   }
 
   async function handleDeleteTask(task) {
-    if (!confirm('Weet je zeker dat je deze taak wilt verwijderen?')) {
-      loadTasks()
-      return
-    }
-    
     const { error } = await supabase
       .from('tasks')
       .delete()
@@ -677,44 +731,42 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         </div>
       </div>
 
-      <div className="px-3 py-4">
-        <div 
-          ref={dayScrollRef}
-          className="relative flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide"
-        >
-          {threeWeekDates.map((date, idx) => {
-            const dayOfWeek = idx % 7  // 0=Ma .. 6=Zo
-            const weekIdx = Math.floor(idx / 7) - 1  // -1=prev, 0=current, 1=next
-            const isCurrentWeek = weekIdx === 0
-            const isActive = isCurrentWeek && dayOfWeek === activeDay
-            const isToday = dayOfWeek === currentDayIndex && (currentWeekOffset + weekIdx) === 0
-            const dayTasks = isCurrentWeek ? getTasksForDay(dayOfWeek) : []
+      {/* === FIXED DAY TABS === */}
+      <div className="px-3 pt-3 pb-2">
+        <div ref={dayTabContainerRef} className="relative flex gap-1">
+          {/* Sliding pill indicator */}
+          {dayPillStyle && (
+            <div
+              className="absolute top-0 bottom-0 rounded-2xl bg-gradient-to-br from-accent-mint to-pastel-mintDark shadow-soft pointer-events-none transition-all duration-300 ease-out"
+              style={{
+                left: dayPillStyle.left,
+                width: dayPillStyle.width,
+              }}
+            />
+          )}
+          {DAYS.map((day, i) => {
+            const isActive = i === activeDay
+            const isToday = i === currentDayIndex && currentWeekOffset === 0
+            const dayTasks = getTasksForDay(i)
             const hasTasks = dayTasks.length > 0
 
             return (
               <button
-                key={`${currentWeekOffset + weekIdx}-${dayOfWeek}`}
-                onClick={() => {
-                  if (weekIdx !== 0) {
-                    setCurrentWeekOffset(prev => prev + weekIdx)
-                  }
-                  setActiveDay(dayOfWeek)
-                }}
-                style={{ width: dayWidth, minWidth: dayWidth }}
-                className={`day-tab flex-shrink-0 ${
+                key={i}
+                ref={el => { dayTabRefs.current[i] = el }}
+                onClick={() => navigateToDay(i)}
+                className={`day-tab flex-1 relative z-10 flex-shrink-0 ${
                   isActive 
-                    ? 'bg-gradient-to-br from-accent-mint to-pastel-mintDark text-white shadow-soft' 
+                    ? 'text-white' 
                     : isToday 
                       ? 'bg-white shadow-card text-gray-700'
-                      : isCurrentWeek
-                        ? 'bg-white/50 text-gray-500 hover:bg-white'
-                        : 'bg-white/30 text-gray-300'
+                      : 'bg-white/50 text-gray-500 active:bg-white/80'
                 }`}
               >
-                <p className="text-xs opacity-70">{DAYS[dayOfWeek]}</p>
-                <p className="text-lg font-semibold mt-0.5">{date.getDate()}</p>
-                {hasTasks && !isActive && isCurrentWeek && (
-                  <span className="w-1.5 h-1.5 bg-accent-mint rounded-full mx-auto mt-1.5"></span>
+                <p className="text-xs opacity-70">{day}</p>
+                <p className="text-lg font-semibold mt-0.5">{weekDates[i].getDate()}</p>
+                {hasTasks && !isActive && (
+                  <span className="w-1.5 h-1.5 bg-accent-mint rounded-full mx-auto mt-1"></span>
                 )}
               </button>
             )
@@ -722,77 +774,119 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         </div>
       </div>
 
-      <div className="px-4 pb-24" key={`day-${activeDay}-${currentWeekOffset}-${slideKeyRef.current}`}>
-        <div className={slideDirection === 'left' ? 'animate-slide-content-left' : slideDirection === 'right' ? 'animate-slide-content-right' : 'animate-fade-in'}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">
-            {DAY_NAMES[activeDay]}
-          </h2>
-          {activeDay === currentDayIndex && currentWeekOffset === 0 && (
-            <span className="text-xs font-medium text-accent-mint bg-pastel-mint/30 px-3 py-1 rounded-full">
-              Vandaag
-            </span>
-          )}
-        </div>
+      {/* === CONTENT CAROUSEL === */}
+      <div 
+        ref={carouselRef}
+        className="flex overflow-x-auto carousel-snap scrollbar-hide"
+        style={{ scrollSnapType: 'x mandatory' }}
+      >
+        {threeWeekDates.map((date, idx) => {
+          const dayOfWeek = idx % 7
+          const weekIdx = Math.floor(idx / 7) - 1
+          const effectiveWeekOffset = currentWeekOffset + weekIdx
+          const isActiveArea = Math.abs(idx - activePageIndex) <= 1
+          const isDayToday = dayOfWeek === currentDayIndex && effectiveWeekOffset === 0
 
-        {getMealsForDay(activeDay).length > 0 && (
-          <div className="mb-6">
-            <div className="space-y-2">
-              {getMealsForDay(activeDay).map(meal => (
-                <button
-                  key={meal.id}
-                  onClick={() => {
-                    setEditMeal(meal)
-                    setShowModal(true)
-                  }}
-                  className="w-full flex items-center justify-between bg-pastel-peach/30 hover:bg-pastel-peach/50 active:scale-[0.99] rounded-xl p-3 transition-all"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
-                    <span className="text-gray-700">{meal.meal_name}</span>
-                  </div>
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        <div className="space-y-3">
-          {getTasksForDay(activeDay).map(task => (
-            <TaskItem
-              key={task.id}
-              task={task}
-              isCompleted={isTaskCompleted(task.id)}
-              onComplete={() => handleCompleteTask(task)}
-              onUncomplete={() => handleUncompleteTask(task)}
-              onEdit={(t) => {
-                setEditTask(t)
-                setShowModal(true)
+          return (
+            <div
+              key={`page-${currentWeekOffset + weekIdx}-${dayOfWeek}`}
+              className="carousel-page flex-shrink-0 px-4 pb-24"
+              style={{ 
+                width: pageWidth ? `${pageWidth}px` : '100vw',
+                minWidth: pageWidth ? `${pageWidth}px` : '100vw',
+                scrollSnapAlign: 'start',
               }}
-              onDelete={() => handleDeleteTask(task)}
-              onDeleteAttempt={() => setResetKey(k => k + 1)}
-              users={users}
-              isToday={activeDay === currentDayIndex && currentWeekOffset === 0}
-              presentationMode={false}
-              resetKey={resetKey}
-            />
-          ))}
-          {getTasksForDay(activeDay).length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-pastel-lavender/50 rounded-2xl mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-8 h-8 text-pastel-lavenderDark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-              <p className="text-gray-400">Geen taken voor deze dag</p>
-              <p className="text-gray-300 text-sm mt-1">Druk op + om een taak toe te voegen</p>
+            >
+              {isActiveArea ? (
+                <>
+                  <div className="flex items-center justify-between mb-4 pt-2">
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      {DAY_NAMES[dayOfWeek]}
+                    </h2>
+                    {isDayToday && (
+                      <span className="text-xs font-medium text-accent-mint bg-pastel-mint/30 px-3 py-1 rounded-full">
+                        Vandaag
+                      </span>
+                    )}
+                  </div>
+
+                  {weekIdx === 0 && getMealsForDay(dayOfWeek).length > 0 && (
+                    <div className="mb-6">
+                      <div className="space-y-2">
+                        {getMealsForDay(dayOfWeek).map(meal => (
+                          <button
+                            key={meal.id}
+                            onClick={() => {
+                              setEditMeal(meal)
+                              setShowModal(true)
+                            }}
+                            className="w-full flex items-center justify-between bg-pastel-peach/30 hover:bg-pastel-peach/50 active:scale-[0.99] rounded-xl p-3 transition-all"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
+                              <span className="text-gray-700">{meal.meal_name}</span>
+                            </div>
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {weekIdx === 0 ? (
+                    <div className="space-y-3">
+                      {getTasksForDay(dayOfWeek).map(task => (
+                        <TaskItem
+                          key={task.id}
+                          task={task}
+                          isCompleted={isTaskCompleted(task.id)}
+                          onComplete={() => handleCompleteTask(task)}
+                          onUncomplete={() => handleUncompleteTask(task)}
+                          onEdit={(t) => {
+                            setEditTask(t)
+                            setShowModal(true)
+                          }}
+                          onDelete={() => handleDeleteTask(task)}
+                          onDeleteAttempt={() => setResetKey(k => k + 1)}
+                          users={users}
+                          isToday={isDayToday}
+                          presentationMode={false}
+                          resetKey={resetKey}
+                        />
+                      ))}
+                      {getTasksForDay(dayOfWeek).length === 0 && (
+                        <div className="text-center py-12">
+                          <div className="w-16 h-16 bg-pastel-lavender/50 rounded-2xl mx-auto mb-4 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-pastel-lavenderDark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                          </div>
+                          <p className="text-gray-400">Geen taken voor deze dag</p>
+                          <p className="text-gray-300 text-sm mt-1">Druk op + om een taak toe te voegen</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="w-10 h-10 border-2 border-gray-200 border-t-accent-mint rounded-full animate-spin mx-auto mb-3"></div>
+                      <p className="text-gray-400 text-sm">Laden...</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="pt-2">
+                  <div className="h-8 mb-4">
+                    <h2 className="text-lg font-semibold text-gray-300">
+                      {DAY_NAMES[dayOfWeek]}
+                    </h2>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        </div>
+          )
+        })}
       </div>
 
       <button
