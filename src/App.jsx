@@ -58,6 +58,20 @@ export default function App() {
     return () => window.removeEventListener('sw-update-available', onSwUpdate)
   }, [])
 
+  // Auto-login in dev mode when VITE_DEV_PIN is set
+  useEffect(() => {
+    const devPin = import.meta.env.VITE_DEV_PIN
+    if (import.meta.env.DEV && devPin && users.length > 0 && !currentUser && !isAutoLoggingIn) {
+      setIsAutoLoggingIn(true)
+      handleLogin(devPin).then(matched => {
+        setIsAutoLoggingIn(false)
+        if (matched && matched.length === 1) {
+          setCurrentUser(matched[0])
+        }
+      })
+    }
+  }, [users, currentUser])
+
   useEffect(() => {
     if (presentationMode && users.length > 0) {
       const params = new URLSearchParams(window.location.search)

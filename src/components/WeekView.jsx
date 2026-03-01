@@ -15,7 +15,8 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   const [editTask, setEditTask] = useState(null)
   const [editMeal, setEditMeal] = useState(null)
   const [filter, setFilter] = useState('all')
-  const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
+  const [selectedWeekOffset, setSelectedWeekOffset] = useState(0)
+  const [visibleWeekOffset, setVisibleWeekOffset] = useState(0)
   const [resetKey, setResetKey] = useState(0)
 
   // Week scroller (snap-based)
@@ -59,23 +60,23 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   // Content transition
   const [slideDirection, setSlideDirection] = useState(null)
   const prevActiveDayRef = useRef(activeDay)
-  const prevWeekOffsetRef = useRef(currentWeekOffset)
+  const prevWeekOffsetRef = useRef(selectedWeekOffset)
   const contentRef = useRef(null)
 
   useEffect(() => {
     const prevDay = prevActiveDayRef.current
     const prevWeek = prevWeekOffsetRef.current
-    if (currentWeekOffset !== prevWeek) {
-      setSlideDirection(currentWeekOffset > prevWeek ? 'left' : 'right')
+    if (selectedWeekOffset !== prevWeek) {
+      setSlideDirection(selectedWeekOffset > prevWeek ? 'left' : 'right')
     } else if (activeDay !== prevDay) {
       setSlideDirection(activeDay > prevDay ? 'left' : 'right')
     }
     prevActiveDayRef.current = activeDay
-    prevWeekOffsetRef.current = currentWeekOffset
+    prevWeekOffsetRef.current = selectedWeekOffset
     // Reset slide direction after animation completes
     const t = setTimeout(() => setSlideDirection(null), 280)
     return () => clearTimeout(t)
-  }, [activeDay, currentWeekOffset])
+  }, [activeDay, selectedWeekOffset])
 
   function getWeekDates(offset = 0) {
     const start = new Date(today)
@@ -87,12 +88,12 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     })
   }
 
-  const weekDates = getWeekDates(currentWeekOffset)
+  const weekDates = getWeekDates(selectedWeekOffset)
 
   // Generate 5 weeks of dates for the snap scroller
   const bufferWeeks = []
   for (let w = 0; w < BUFFER_WEEKS; w++) {
-    const weekOffset = currentWeekOffset + (w - CENTER_WEEK)
+    const weekOffset = visibleWeekOffset + (w - CENTER_WEEK)
     bufferWeeks.push({
       offset: weekOffset,
       dates: getWeekDates(weekOffset),
@@ -118,10 +119,10 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     })
   }, [])
 
-  // Center on mount and when week offset changes
+  // Center on mount and when visible week changes
   useEffect(() => {
     centerWeekScroll()
-  }, [currentWeekOffset, isLoading, centerWeekScroll])
+  }, [visibleWeekOffset, isLoading, centerWeekScroll])
 
   // Re-center after layout settles and on resize
   useEffect(() => {
@@ -131,7 +132,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     const ro = new ResizeObserver(() => centerWeekScroll())
     ro.observe(el)
     return () => { clearTimeout(t); ro.disconnect() }
-  }, [currentWeekOffset, isLoading, centerWeekScroll])
+  }, [visibleWeekOffset, isLoading, centerWeekScroll])
 
   // Handle scroll-snap settling: detect which week snapped into view
   const handleWeekScrollEnd = useCallback(() => {
@@ -143,7 +144,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     const snappedIndex = Math.round(el.scrollLeft / weekWidth)
     const drift = snappedIndex - CENTER_WEEK
     if (drift !== 0) {
-      setCurrentWeekOffset(prev => prev + drift)
+      setVisibleWeekOffset(prev => prev + drift)
     }
   }, [])
 
@@ -189,10 +190,10 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [currentWeekOffset])
+  }, [selectedWeekOffset])
 
   async function loadMeals() {
-    const weekDates = getWeekDates(currentWeekOffset)
+    const weekDates = getWeekDates(selectedWeekOffset)
     const weekNumber = getWeekNumber(weekDates[0])
     const year = weekDates[0].getFullYear()
     
@@ -229,7 +230,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   }
 
   function getTasksForDay(dayIndex) {
-    const weekDates = getWeekDates(currentWeekOffset)
+    const weekDates = getWeekDates(selectedWeekOffset)
     const weekStart = weekDates[0]
     const weekEnd = new Date(weekDates[6])
     weekEnd.setHours(23, 59, 59, 999)
@@ -322,8 +323,9 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
   }
 
   function getWeekRange() {
-    const start = weekDates[0]
-    const end = weekDates[6]
+    const visibleDates = getWeekDates(visibleWeekOffset)
+    const start = visibleDates[0]
+    const end = visibleDates[6]
     const startStr = `${start.getDate()}/${start.getMonth() + 1}`
     const endStr = `${end.getDate()}/${end.getMonth() + 1}`
     return `${startStr} - ${endStr}`
@@ -382,7 +384,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
             <h1 className="text-xl md:text-3xl font-bold text-gray-800">Divide/Chores</h1>
             <div className="flex items-center justify-center gap-2 md:gap-3 mt-1 md:mt-2">
               <button 
-                onClick={() => setCurrentWeekOffset(prev => prev - 1)}
+                onClick={() => { setSelectedWeekOffset(prev => prev - 1); setVisibleWeekOffset(prev => prev - 1) }}
                 className="p-2.5 md:p-2 hover:bg-white/60 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,7 +393,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
               </button>
               <p className="text-sm md:text-lg text-gray-500 font-medium min-w-[140px] md:min-w-[180px] text-center">{getWeekRange()}</p>
               <button 
-                onClick={() => setCurrentWeekOffset(prev => prev + 1)}
+                onClick={() => { setSelectedWeekOffset(prev => prev + 1); setVisibleWeekOffset(prev => prev + 1) }}
                 className="p-2.5 md:p-2 hover:bg-white/60 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -399,7 +401,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                 </svg>
               </button>
             </div>
-            {currentWeekOffset === 0 && (
+            {selectedWeekOffset === 0 && (
               <p className="text-accent-mint text-sm md:text-lg font-semibold mt-1 md:mt-2">Vandaag: {DAY_NAMES[currentDayIndex]}</p>
             )}
           </div>
@@ -431,7 +433,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
           {DAYS.map((day, i) => {
             const dayTasks = getTasksForDay(i)
             const dayMeals = getMealsForDay(i)
-            const isToday = i === currentDayIndex && currentWeekOffset === 0
+            const isToday = i === currentDayIndex && selectedWeekOffset === 0
             const hasItems = dayTasks.length > 0 || dayMeals.length > 0
 
             return (
@@ -494,7 +496,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         <div className="flex-1 md:hidden flex flex-col overflow-hidden">
           <div className="flex gap-2 overflow-x-auto pb-2 mb-3 snap-x">
             {DAYS.map((day, i) => {
-              const isToday = i === currentDayIndex && currentWeekOffset === 0
+              const isToday = i === currentDayIndex && selectedWeekOffset === 0
               return (
                 <button
                   key={i}
@@ -516,12 +518,12 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
           
           <div className="flex-1 overflow-y-auto bg-white/60 rounded-2xl">
             <div className={`text-center p-3 transition-all duration-300 ${
-              activeDay === currentDayIndex && currentWeekOffset === 0
+              activeDay === currentDayIndex && selectedWeekOffset === 0
                 ? 'bg-gradient-to-br from-accent-mint to-pastel-mintDark text-white shadow-lg rounded-t-2xl' 
                 : 'bg-white shadow-sm rounded-t-2xl'
             }`}>
-              <p className={`font-medium ${activeDay === currentDayIndex && currentWeekOffset === 0 ? 'text-white/80' : 'text-gray-500'}`}>{DAY_NAMES[activeDay]}</p>
-              <p className={`text-3xl font-bold mt-1 ${activeDay === currentDayIndex && currentWeekOffset === 0 ? 'text-white' : 'text-gray-800'}`}>{formatDate(weekDates[activeDay])}</p>
+              <p className={`font-medium ${activeDay === currentDayIndex && selectedWeekOffset === 0 ? 'text-white/80' : 'text-gray-500'}`}>{DAY_NAMES[activeDay]}</p>
+              <p className={`text-3xl font-bold mt-1 ${activeDay === currentDayIndex && selectedWeekOffset === 0 ? 'text-white' : 'text-gray-800'}`}>{formatDate(weekDates[activeDay])}</p>
             </div>
             
             <div className="p-3 space-y-2">
@@ -555,7 +557,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                     setShowModal(true)
                   }}
                   users={users}
-                  isToday={activeDay === currentDayIndex && currentWeekOffset === 0}
+              isToday={activeDay === currentDayIndex && selectedWeekOffset === 0}
                   presentationMode={true}
                 />
               ))}
@@ -596,7 +598,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
             <h1 className="text-lg font-semibold text-gray-800">Divide/Chores</h1>
             <div className="flex items-center justify-center gap-2 mt-0.5">
               <button 
-                onClick={() => setCurrentWeekOffset(prev => prev - 1)}
+                onClick={() => setVisibleWeekOffset(prev => prev - 1)}
                 className="p-2.5 hover:bg-white/50 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -605,13 +607,34 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
               </button>
               <p className="text-gray-400 text-xs">{getWeekRange()}</p>
               <button 
-                onClick={() => setCurrentWeekOffset(prev => prev + 1)}
+                onClick={() => setVisibleWeekOffset(prev => prev + 1)}
                 className="p-2.5 hover:bg-white/50 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+              {(selectedWeekOffset !== 0 || activeDay !== currentDayIndex) && (
+                <button
+                  onClick={() => {
+                    setSelectedWeekOffset(0)
+                    setVisibleWeekOffset(0)
+                    setActiveDay(currentDayIndex)
+                  }}
+                  className="p-1.5 rounded-lg text-accent-mint bg-pastel-mint/30 hover:bg-pastel-mint/50 transition-colors"
+                  title="Vandaag"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {/* Calendar body */}
+                    <rect x="3" y="4" width="18" height="18" rx="2" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Calendar top hooks */}
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 2v4M16 2v4" />
+                    {/* Return arrow (left) */}
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 11l-3 3 3 3" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 14h8" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
           
@@ -671,7 +694,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
           }}
         >
           {bufferWeeks.map((week) => {
-            const isCurrentWeek = week.offset === currentWeekOffset
+            const isSelectedWeek = week.offset === selectedWeekOffset
             return (
               <div
                 key={`week-${week.offset}`}
@@ -679,18 +702,17 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                 style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
               >
                 {week.dates.map((date, dayIdx) => {
-                  const isActive = isCurrentWeek && dayIdx === activeDay
+                  const isActive = isSelectedWeek && dayIdx === activeDay
                   const isToday = dayIdx === currentDayIndex && week.offset === 0
-                  const dayTasks = isCurrentWeek ? getTasksForDay(dayIdx) : []
+                  const dayTasks = isSelectedWeek ? getTasksForDay(dayIdx) : []
                   const hasTasks = dayTasks.length > 0
 
                   return (
                     <button
                       key={dayIdx}
                       onClick={() => {
-                        if (!isCurrentWeek) {
-                          setCurrentWeekOffset(week.offset)
-                        }
+                        setSelectedWeekOffset(week.offset)
+                        setVisibleWeekOffset(week.offset)
                         setActiveDay(dayIdx)
                       }}
                       className={`day-tab flex-1 flex-shrink-0 ${
@@ -698,14 +720,14 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                           ? 'bg-gradient-to-br from-accent-mint to-pastel-mintDark text-white shadow-soft' 
                           : isToday 
                             ? 'bg-white shadow-card text-gray-700'
-                            : isCurrentWeek
+                            : isSelectedWeek
                               ? 'bg-white/50 text-gray-500 active:bg-white/80'
-                              : 'bg-white/30 text-gray-300'
+                              : 'bg-white/40 text-gray-400 active:bg-white/60'
                       }`}
                     >
                       <p className="text-xs opacity-70">{DAYS[dayIdx]}</p>
                       <p className="text-lg font-semibold mt-0.5">{date.getDate()}</p>
-                      {hasTasks && !isActive && isCurrentWeek && (
+                      {hasTasks && !isActive && isSelectedWeek && (
                         <span className="w-1.5 h-1.5 bg-accent-mint rounded-full mx-auto mt-1.5"></span>
                       )}
                     </button>
@@ -727,13 +749,13 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                 ? 'animate-slide-content-right' 
                 : ''
           }`}
-          key={`day-${activeDay}-${currentWeekOffset}`}
+          key={`day-${activeDay}-${selectedWeekOffset}`}
         >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">
             {DAY_NAMES[activeDay]}
           </h2>
-          {activeDay === currentDayIndex && currentWeekOffset === 0 && (
+          {activeDay === currentDayIndex && selectedWeekOffset === 0 && (
             <span className="text-xs font-medium text-accent-mint bg-pastel-mint/30 px-3 py-1 rounded-full">
               Vandaag
             </span>
@@ -780,7 +802,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
               onDelete={() => handleDeleteTask(task)}
               onDeleteAttempt={() => setResetKey(k => k + 1)}
               users={users}
-              isToday={activeDay === currentDayIndex && currentWeekOffset === 0}
+              isToday={activeDay === currentDayIndex && selectedWeekOffset === 0}
               presentationMode={false}
               resetKey={resetKey}
             />
