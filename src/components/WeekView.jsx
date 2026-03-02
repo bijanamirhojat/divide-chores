@@ -231,7 +231,8 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
   function getTasksForDay(dayIndex) {
     const weekDates = getWeekDates(selectedWeekOffset)
-    const weekStart = weekDates[0]
+    const weekStart = new Date(weekDates[0])
+    weekStart.setHours(0, 0, 0, 0)
     const weekEnd = new Date(weekDates[6])
     weekEnd.setHours(23, 59, 59, 999)
     
@@ -243,8 +244,18 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
         // Recurring tasks show every week
       } else {
         // Non-recurring tasks only show in the week they were created
-        const createdAt = new Date(task.created_at)
-        if (createdAt < weekStart || createdAt > weekEnd) return false
+        // Parse as local time to avoid UTC timezone issues
+        const createdAtStr = task.created_at.replace('+00:00', 'Z')
+        const createdAt = new Date(createdAtStr)
+        // Reset time to compare dates only
+        createdAt.setHours(12, 0, 0, 0)
+        
+        const weekStartCompare = new Date(weekStart)
+        weekStartCompare.setHours(12, 0, 0, 0)
+        const weekEndCompare = new Date(weekEnd)
+        weekEndCompare.setHours(12, 0, 0, 0)
+        
+        if (createdAt < weekStartCompare || createdAt > weekEndCompare) return false
       }
       
       if (filter === 'bijan') {
