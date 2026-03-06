@@ -5,3 +5,5 @@ dist
 .env
 *.sql
 supabase-edge-functions/
+scripts/local/
+backups/

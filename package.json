@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "db:dump": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/local/supabase-backup.ps1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
