@@ -374,13 +374,14 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     return meals.filter(meal => meal.scheduled_date === dateStr)
   }
 
-  async function addMeal(scheduledDate, mealName, mealType) {
+  async function addMeal(scheduledDate, mealName, mealType, notes) {
     const { error } = await supabase
       .from('meals')
       .insert({
         scheduled_date: scheduledDate,
         meal_name: mealName,
         meal_type: mealType,
+        notes: notes || null,
       })
     
     if (!error) {
@@ -484,9 +485,12 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                       }}
                       className="w-full bg-pastel-peach/60 rounded px-2 py-1.5 text-sm font-medium text-gray-700 flex items-center justify-between text-left hover:bg-pastel-peach/80 transition-colors"
                     >
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-start gap-1.5">
                         <span>{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
-                        <span className="whitespace-normal">{meal.meal_name}</span>
+                        <div className="min-w-0">
+                          <span className="whitespace-normal block">{meal.meal_name}</span>
+                          {meal.notes && <span className="text-xs text-gray-500 block mt-0.5">{meal.notes}</span>}
+                        </div>
                       </div>
                       <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -563,9 +567,12 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                   }}
                   className="w-full bg-pastel-peach/60 rounded-xl px-3 py-2.5 text-base font-medium text-gray-700 flex items-center justify-between text-left hover:bg-pastel-peach/80 transition-colors"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-start gap-2">
                     <span>{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
-                    <span className="whitespace-normal">{meal.meal_name}</span>
+                    <div className="min-w-0">
+                      <span className="whitespace-normal block">{meal.meal_name}</span>
+                      {meal.notes && <span className="text-xs text-gray-500 block mt-0.5">{meal.notes}</span>}
+                    </div>
                   </div>
                   <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -801,9 +808,12 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
                   }}
                   className="w-full flex items-center justify-between bg-pastel-peach/30 hover:bg-pastel-peach/50 active:scale-[0.99] rounded-xl p-3 transition-all"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-start gap-2">
                     <span className="text-lg">{meal.meal_type === 'lunch' ? '🍞' : '🍝'}</span>
-                    <span className="text-gray-700">{meal.meal_name}</span>
+                    <div className="min-w-0">
+                      <span className="text-gray-700 block">{meal.meal_name}</span>
+                      {meal.notes && <span className="text-xs text-gray-500 block mt-0.5">{meal.notes}</span>}
+                    </div>
                   </div>
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -875,7 +885,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
           onTaskCreated={loadTasks}
           editTask={editTask}
           editMeal={editMeal}
-          onMealAdded={(scheduledDate, name, type) => addMeal(scheduledDate, name, type)}
+          onMealAdded={(scheduledDate, name, type, notes) => addMeal(scheduledDate, name, type, notes)}
           onMealUpdated={loadMeals}
           onMealDeleted={async (mealId) => {
             await deleteMeal(mealId)

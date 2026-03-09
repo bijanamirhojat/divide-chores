@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import DatePickerField from './DatePickerField'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -63,6 +64,7 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
   
   const [mealName, setMealName] = useState(editMeal?.meal_name || '')
   const [mealType, setMealType] = useState(editMeal?.meal_type || 'dinner')
+  const [mealNotes, setMealNotes] = useState(editMeal?.notes || '')
 
   // Fluid pill for assignee selector
   const assigneeContainerRef = useRef(null)
@@ -211,7 +213,8 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
           .update({
             meal_name: mealName.trim(),
             meal_type: mealType,
-            scheduled_date: scheduledDate
+            scheduled_date: scheduledDate,
+            notes: mealNotes.trim() || null,
           })
           .eq('id', editMeal.id)
         
@@ -223,7 +226,7 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
         }
       } else {
         if (onMealAdded) {
-          onMealAdded(scheduledDate, mealName.trim(), mealType)
+          onMealAdded(scheduledDate, mealName.trim(), mealType, mealNotes.trim() || null)
         }
         
         setLoading(false)
@@ -347,15 +350,7 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
 
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">Datum</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={scheduledDate}
-                    onChange={e => setScheduledDate(e.target.value)}
-                    className="input-field w-full max-w-full min-w-0"
-                  />
-                  <p className="text-xs text-gray-400 mt-1.5 capitalize">{formatDateLabel(scheduledDate)}</p>
-                </div>
+                <DatePickerField value={scheduledDate} onChange={setScheduledDate} />
               </div>
 
               <div>
@@ -469,15 +464,18 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
 
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">Datum</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={scheduledDate}
-                    onChange={e => setScheduledDate(e.target.value)}
-                    className="input-field w-full max-w-full min-w-0"
-                  />
-                  <p className="text-xs text-gray-400 mt-1.5 capitalize">{formatDateLabel(scheduledDate)}</p>
-                </div>
+                <DatePickerField value={scheduledDate} onChange={setScheduledDate} />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">Opmerking</label>
+                <textarea
+                  value={mealNotes}
+                  onChange={e => setMealNotes(e.target.value)}
+                  placeholder="Bijv. Zonder ui, snel klaar, restjes opmaken..."
+                  className="input-field resize-none"
+                  rows={2}
+                />
               </div>
             </>
           )}
