@@ -152,7 +152,7 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
     setLoadingHistory(true)
     const { data } = await supabase
       .from('completed_tasks')
-      .select('*, tasks(title, day_of_week), users(name)')
+      .select('*, tasks(title, scheduled_date), users(name)')
       .order('completed_at', { ascending: false })
       .limit(50)
     
@@ -261,7 +261,6 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
     },
   ]
 
-  const dayNames = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
 
   return (
     <AnimatedOverlay show={show} onClose={onClose} direction="right" className="flex h-full ml-auto w-full max-w-sm">
@@ -549,7 +548,7 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
                       <span className="text-xs text-gray-400">{ct.users?.name}</span>
                       <span className="text-gray-300">•</span>
                       <span className="text-xs text-gray-400">
-                        {dayNames[ct.tasks?.day_of_week]} • {new Date(ct.completed_at).toLocaleDateString('nl-NL', {
+                        {ct.tasks?.scheduled_date ? new Date(ct.tasks.scheduled_date + 'T12:00:00').toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'short' }) : ''} • {new Date(ct.completed_at).toLocaleDateString('nl-NL', {
                           day: 'numeric',
                           month: 'short',
                           hour: '2-digit',

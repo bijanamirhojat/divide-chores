@@ -29,7 +29,7 @@ export default function Stats({ show, onClose, users }) {
     const now = new Date()
     let query = supabase
       .from('completed_tasks')
-      .select('*, tasks(title, day_of_week), users(name, avatar_url)')
+      .select('*, tasks(title, scheduled_date), users(name, avatar_url)')
 
     if (period === 'week') {
       const weekNum = getWeekNumber(now)

@@ -3,8 +3,25 @@ import { supabase } from '../lib/supabase'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
-const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
-const DAY_NAMES = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
+
+const DAY_NAMES = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag']
+
+const RECURRENCE_OPTIONS = [
+  { value: null, label: 'Eenmalig' },
+  { value: 'weekly', label: 'Wekelijks' },
+  { value: 'biweekly', label: '2-wekelijks' },
+  { value: 'monthly', label: 'Maandelijks' },
+]
+
+/**
+ * Format a date string (YYYY-MM-DD) to a readable Dutch label.
+ * E.g. "2026-03-14" → "Zaterdag 14 maart"
+ */
+function formatDateLabel(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T12:00:00') // Noon to avoid timezone issues
+  return d.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })
+}
 
 /**
  * Fire-and-forget: send push notification for a new task via Edge Function.
@@ -27,12 +44,12 @@ function sendNewTaskPush({ creatorName, taskTitle, dayName, targetUserIds }) {
   }).catch(() => {}) // Silent fail — don't block the user
 }
 
-export default function TaskModal({ dayIndex, dayName, onClose, users, currentUser, onTaskCreated, editTask, onMealAdded, editMeal, onMealUpdated, onMealDeleted }) {
+export default function TaskModal({ scheduledDate: defaultDate, onClose, users, currentUser, onTaskCreated, editTask, onMealAdded, editMeal, onMealUpdated, onMealDeleted }) {
   const [mode, setMode] = useState(editMeal ? 'meal' : 'task')
   
   const [title, setTitle] = useState(editTask?.title || '')
   const [description, setDescription] = useState(editTask?.description || '')
-  const [dayOfWeek, setDayOfWeek] = useState(editMeal?.day_of_week ?? editTask?.day_of_week ?? dayIndex)
+  const [scheduledDate, setScheduledDate] = useState(editMeal?.scheduled_date ?? editTask?.scheduled_date ?? defaultDate)
   const [assignedTo, setAssignedTo] = useState(() => {
     if (editTask?.is_both) return 'both'
     if (editTask?.assigned_to) {
@@ -41,7 +58,7 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
     }
     return 'both'
   })
-  const [isRecurring, setIsRecurring] = useState(editTask?.is_recurring ?? false)
+  const [recurrence, setRecurrence] = useState(editTask?.recurrence ?? null)
   const [loading, setLoading] = useState(false)
   
   const [mealName, setMealName] = useState(editMeal?.meal_name || '')
@@ -77,6 +94,34 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
     return () => clearTimeout(timer)
   }, [updateAssigneePill])
 
+  // Fluid pill for recurrence selector
+  const recurrenceContainerRef = useRef(null)
+  const recurrenceBtnRefs = useRef({})
+  const [recurrencePillStyle, setRecurrencePillStyle] = useState(null)
+
+  const updateRecurrencePill = useCallback(() => {
+    const container = recurrenceContainerRef.current
+    const key = recurrence ?? 'none'
+    const btn = recurrenceBtnRefs.current[key]
+    if (!container || !btn) return
+    const containerRect = container.getBoundingClientRect()
+    const btnRect = btn.getBoundingClientRect()
+    setRecurrencePillStyle({
+      left: btnRect.left - containerRect.left,
+      width: btnRect.width,
+    })
+  }, [recurrence])
+
+  useLayoutEffect(() => {
+    updateRecurrencePill()
+  }, [updateRecurrencePill])
+
+  useEffect(() => {
+    requestAnimationFrame(updateRecurrencePill)
+    const timer = setTimeout(updateRecurrencePill, 350)
+    return () => clearTimeout(timer)
+  }, [updateRecurrencePill])
+
   const isEditing = !!editTask
   const isEditingMeal = !!editMeal
 
@@ -108,10 +153,10 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
           .update({
             title: title.trim(),
             description: description.trim() || null,
-            day_of_week: dayOfWeek,
+            scheduled_date: scheduledDate,
+            recurrence: recurrence,
             assigned_to: taskAssignedTo,
             is_both: taskIsBoth,
-            is_recurring: isRecurring
           })
           .eq('id', editTask.id)
   
@@ -127,10 +172,10 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
           .insert({
             title: title.trim(),
             description: description.trim() || null,
-            day_of_week: dayOfWeek,
+            scheduled_date: scheduledDate,
+            recurrence: recurrence,
             assigned_to: taskAssignedTo,
             is_both: taskIsBoth,
-            is_recurring: isRecurring,
             created_by: currentUser.id
           })
   
@@ -140,16 +185,14 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
           // Send push notification for new task (fire-and-forget)
           const targetUserIds = []
           if (taskIsBoth) {
-            // Notify everyone except the creator
             users.filter(u => u.id !== currentUser.id).forEach(u => targetUserIds.push(u.id))
           } else if (taskAssignedTo && taskAssignedTo !== currentUser.id) {
-            // Notify the assigned person (only if it's not the creator)
             targetUserIds.push(taskAssignedTo)
           }
           sendNewTaskPush({
             creatorName: currentUser.name,
             taskTitle: title.trim(),
-            dayName: DAY_NAMES[dayOfWeek],
+            dayName: formatDateLabel(scheduledDate),
             targetUserIds,
           })
 
@@ -168,7 +211,7 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
           .update({
             meal_name: mealName.trim(),
             meal_type: mealType,
-            day_of_week: dayOfWeek
+            scheduled_date: scheduledDate
           })
           .eq('id', editMeal.id)
         
@@ -180,7 +223,7 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
         }
       } else {
         if (onMealAdded) {
-          onMealAdded(dayOfWeek, mealName.trim(), mealType)
+          onMealAdded(scheduledDate, mealName.trim(), mealType)
         }
         
         setLoading(false)
@@ -303,22 +346,15 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Dag</label>
-                <div className="grid grid-cols-7 gap-1">
-                  {DAYS.map((day, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setDayOfWeek(i)}
-                      className={`py-2 rounded-xl text-xs font-medium transition-all ${
-                        dayOfWeek === i
-                          ? 'bg-accent-mint text-white shadow-soft'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }`}
-                    >
-                      {day}
-                    </button>
-                  ))}
+                <label className="block text-sm font-medium text-gray-600 mb-2">Datum</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={scheduledDate}
+                    onChange={e => setScheduledDate(e.target.value)}
+                    className="input-field w-full"
+                  />
+                  <p className="text-xs text-gray-400 mt-1.5 capitalize">{formatDateLabel(scheduledDate)}</p>
                 </div>
               </div>
 
@@ -355,19 +391,38 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-                <button
-                  type="button"
-                  onClick={() => setIsRecurring(!isRecurring)}
-                  className={`w-12 h-7 rounded-full transition-all duration-300 ${
-                    isRecurring ? 'bg-accent-mint' : 'bg-gray-300'
-                  }`}
-                >
-                  <div className={`w-6 h-6 bg-white rounded-full shadow transition-transform duration-300 ${
-                    isRecurring ? 'translate-x-5' : 'translate-x-0.5'
-                  }`} />
-                </button>
-                <span className="text-sm text-gray-600">Elke week herhalen</span>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">Herhaling</label>
+                <div ref={recurrenceContainerRef} className="relative flex gap-1.5">
+                  {recurrencePillStyle && (
+                    <div
+                      className="absolute top-0 bottom-0 rounded-xl bg-accent-mint shadow-soft pointer-events-none transition-all duration-300 ease-out"
+                      style={{
+                        left: recurrencePillStyle.left,
+                        width: recurrencePillStyle.width,
+                      }}
+                    />
+                  )}
+                  {RECURRENCE_OPTIONS.map(opt => {
+                    const key = opt.value ?? 'none'
+                    const isActive = recurrence === opt.value
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        ref={el => { recurrenceBtnRefs.current[key] = el }}
+                        onClick={() => setRecurrence(opt.value)}
+                        className={`flex-1 py-2.5 rounded-xl text-xs font-medium transition-colors duration-300 relative z-10 ${
+                          isActive
+                            ? 'text-white'
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </>
           ) : (
@@ -384,7 +439,7 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                     }`}
                   >
-                    🍞 Lunch
+                    Lunch
                   </button>
                   <button
                     type="button"
@@ -395,7 +450,7 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                     }`}
                   >
-                    🍝 Diner
+                    Diner
                   </button>
                 </div>
               </div>
@@ -413,22 +468,15 @@ export default function TaskModal({ dayIndex, dayName, onClose, users, currentUs
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Dag</label>
-                <div className="grid grid-cols-7 gap-1">
-                  {DAYS.map((day, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setDayOfWeek(i)}
-                      className={`py-2 rounded-xl text-xs font-medium transition-all ${
-                        dayOfWeek === i
-                          ? 'bg-accent-peach text-white shadow-soft'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }`}
-                    >
-                      {day}
-                    </button>
-                  ))}
+                <label className="block text-sm font-medium text-gray-600 mb-2">Datum</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={scheduledDate}
+                    onChange={e => setScheduledDate(e.target.value)}
+                    className="input-field w-full"
+                  />
+                  <p className="text-xs text-gray-400 mt-1.5 capitalize">{formatDateLabel(scheduledDate)}</p>
                 </div>
               </div>
             </>

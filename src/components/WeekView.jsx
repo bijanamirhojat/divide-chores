@@ -194,15 +194,15 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
   async function loadMeals() {
     const weekDates = getWeekDates(selectedWeekOffset)
-    const weekNumber = getWeekNumber(weekDates[0])
-    const year = weekDates[0].getFullYear()
+    const startDate = toDateStr(weekDates[0])
+    const endDate = toDateStr(weekDates[6])
     
     const { data } = await supabase
       .from('meals')
       .select('*')
-      .eq('week_number', weekNumber)
-      .eq('year', year)
-      .order('day_of_week')
+      .gte('scheduled_date', startDate)
+      .lte('scheduled_date', endDate)
+      .order('scheduled_date')
     
     if (data) setMeals(data)
   }
@@ -229,33 +229,52 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     if (data) setCompletedTasks(data)
   }
 
+  /**
+   * Convert a Date to 'YYYY-MM-DD' string (local time).
+   */
+  function toDateStr(date) {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
+  /**
+   * Check if a recurring task should appear on a given date.
+   *  - weekly: same day of week as scheduled_date
+   *  - biweekly: same day of week, and even number of weeks apart
+   *  - monthly: same day of month
+   */
+  function matchesRecurrence(task, dateStr) {
+    const taskDate = new Date(task.scheduled_date + 'T12:00:00')
+    const viewDate = new Date(dateStr + 'T12:00:00')
+
+    if (task.recurrence === 'weekly') {
+      return taskDate.getDay() === viewDate.getDay()
+    }
+    if (task.recurrence === 'biweekly') {
+      if (taskDate.getDay() !== viewDate.getDay()) return false
+      const diffTime = viewDate.getTime() - taskDate.getTime()
+      const diffWeeks = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000))
+      return diffWeeks >= 0 && diffWeeks % 2 === 0
+    }
+    if (task.recurrence === 'monthly') {
+      return taskDate.getDate() === viewDate.getDate()
+    }
+    return false
+  }
+
   function getTasksForDay(dayIndex) {
-    const weekDates = getWeekDates(selectedWeekOffset)
-    const weekStart = new Date(weekDates[0])
-    weekStart.setHours(0, 0, 0, 0)
-    const weekEnd = new Date(weekDates[6])
-    weekEnd.setHours(23, 59, 59, 999)
-    
+    const dayDate = weekDates[dayIndex]
+    const dateStr = toDateStr(dayDate)
+
     return tasks.filter(task => {
-      const taskDay = task.day_of_week
-      if (taskDay !== dayIndex) return false
-      
-      if (task.is_recurring) {
-        // Recurring tasks show every week
+      if (task.recurrence) {
+        // Recurring task: check if it matches this date via recurrence pattern
+        if (!matchesRecurrence(task, dateStr)) return false
       } else {
-        // Non-recurring tasks only show in the week they were created
-        // Parse as local time to avoid UTC timezone issues
-        const createdAtStr = task.created_at.replace('+00:00', 'Z')
-        const createdAt = new Date(createdAtStr)
-        // Reset time to compare dates only
-        createdAt.setHours(12, 0, 0, 0)
-        
-        const weekStartCompare = new Date(weekStart)
-        weekStartCompare.setHours(12, 0, 0, 0)
-        const weekEndCompare = new Date(weekEnd)
-        weekEndCompare.setHours(12, 0, 0, 0)
-        
-        if (createdAt < weekStartCompare || createdAt > weekEndCompare) return false
+        // One-time task: must match the exact scheduled_date
+        if (task.scheduled_date !== dateStr) return false
       }
       
       if (filter === 'bijan') {
@@ -344,27 +363,24 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
   function getIndicators() {
     return DAYS.map((_, i) => {
-      const dayTasks = tasks.filter(t => t.day_of_week === i)
+      const dayTasks = getTasksForDay(i)
       return dayTasks.length > 0
     })
   }
 
   function getMealsForDay(dayIndex) {
-    return meals.filter(meal => meal.day_of_week === dayIndex)
+    const dayDate = weekDates[dayIndex]
+    const dateStr = toDateStr(dayDate)
+    return meals.filter(meal => meal.scheduled_date === dateStr)
   }
 
-  async function addMeal(dayIndex, mealName, mealType) {
-    const weekNumber = getWeekNumber(weekDates[0])
-    const year = weekDates[0].getFullYear()
-    
+  async function addMeal(scheduledDate, mealName, mealType) {
     const { error } = await supabase
       .from('meals')
       .insert({
-        day_of_week: dayIndex,
+        scheduled_date: scheduledDate,
         meal_name: mealName,
         meal_type: mealType,
-        week_number: weekNumber,
-        year: year
       })
     
     if (!error) {
@@ -847,8 +863,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
 
       {showModal && (
         <TaskModal
-          dayIndex={editMeal?.day_of_week ?? editTask?.day_of_week ?? selectedDay ?? activeDay}
-          dayName={DAY_NAMES[editMeal?.day_of_week ?? editTask?.day_of_week ?? selectedDay ?? activeDay]}
+          scheduledDate={editMeal?.scheduled_date ?? editTask?.scheduled_date ?? (selectedDay != null ? toDateStr(weekDates[selectedDay]) : toDateStr(weekDates[activeDay]))}
           onClose={() => {
             setShowModal(false)
             setSelectedDay(null)
@@ -860,7 +875,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
           onTaskCreated={loadTasks}
           editTask={editTask}
           editMeal={editMeal}
-          onMealAdded={(dayIndex, name, type) => addMeal(dayIndex, name, type)}
+          onMealAdded={(scheduledDate, name, type) => addMeal(scheduledDate, name, type)}
           onMealUpdated={loadMeals}
           onMealDeleted={async (mealId) => {
             await deleteMeal(mealId)
