@@ -35,6 +35,7 @@ function formatDateLabel(dateStr) {
 
 export default function DatePickerField({ value, onChange }) {
   const [mode, setMode] = useState('wheel')
+  const [tickPulse, setTickPulse] = useState(0)
   const parsed = parseDate(value)
   const [pickerValue, setPickerValue] = useState(() => ({
     day: String(parsed.day),
@@ -92,6 +93,15 @@ export default function DatePickerField({ value, onChange }) {
     return d.toLocaleDateString('nl-NL', { weekday: 'short' }).replace('.', '').toLowerCase()
   }, [selectedDay, selectedMonth, selectedYear])
 
+  function stopEventPropagation(e) {
+    e.stopPropagation()
+  }
+
+  function stopAndPreventScrollLeak(e) {
+    e.stopPropagation()
+    if (e.cancelable) e.preventDefault()
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
@@ -111,13 +121,21 @@ export default function DatePickerField({ value, onChange }) {
       </div>
 
       {mode === 'wheel' ? (
-        <div className="rounded-2xl border border-pastel-creamDark bg-white px-2 py-2">
+        <div
+          className="rounded-2xl border border-pastel-creamDark bg-white px-2 py-2"
+          style={{ overscrollBehavior: 'contain' }}
+          onTouchStartCapture={stopEventPropagation}
+          onTouchMoveCapture={stopAndPreventScrollLeak}
+          onTouchEndCapture={stopEventPropagation}
+          onWheelCapture={stopAndPreventScrollLeak}
+        >
           <div className="flex items-stretch gap-2">
             <div className="w-12 flex-shrink-0 flex items-center justify-center rounded-lg bg-gradient-to-br from-accent-mint to-pastel-mintDark text-sm font-bold text-white shadow-soft uppercase tracking-wide">
               {liveWeekdayShort}
             </div>
-            <div className="relative flex-1">
+            <div className="relative flex-1 touch-none" style={{ overscrollBehavior: 'contain' }}>
               <div className="pointer-events-none absolute inset-x-0 top-1/2 h-9 -translate-y-1/2 rounded-lg border border-accent-mint/30 bg-pastel-mint/20" />
+              <div key={tickPulse} className="pointer-events-none absolute inset-x-0 top-1/2 h-9 -translate-y-1/2 rounded-lg border border-accent-mint/40 animate-picker-tick" />
               <Picker
                 value={pickerValue}
                 onChange={(next) => {
@@ -132,6 +150,10 @@ export default function DatePickerField({ value, onChange }) {
                   }
                   setPickerValue(nextState)
                   updateDate(nextYear, nextMonth, clampedDay)
+                  setTickPulse(v => v + 1)
+                  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+                    navigator.vibrate(8)
+                  }
                 }}
                 height={180}
                 itemHeight={36}

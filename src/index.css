@@ -86,3 +86,22 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+@keyframes pickerTick {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) scaleY(0.92);
+  }
+  35% {
+    opacity: 0.45;
+    transform: translateY(-50%) scaleY(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) scaleY(1);
+  }
+}
+
+.animate-picker-tick {
+  animation: pickerTick 180ms ease-out;
+}
