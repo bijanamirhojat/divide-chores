@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { WheelPicker, WheelPickerWrapper } from '@ncdai/react-wheel-picker'
-import '@ncdai/react-wheel-picker/style.css'
+import { WheelPicker, WheelPickerWrapper } from '@/components/wheel-picker'
 
 const MONTH_NAMES = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december']
 
@@ -109,11 +108,11 @@ export default function DatePickerField({ value, onChange }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-gray-500">{mode === 'wheel' ? 'Apple scroll' : 'Standaard datumkiezer'}</p>
+        <p className="text-xs text-gray-500">{mode === 'wheel' ? 'Datumwiel' : 'Standaard datumkiezer'}</p>
         <button
           type="button"
           onClick={() => setMode(prev => prev === 'wheel' ? 'native' : 'wheel')}
-          className="h-8 w-8 rounded-lg border border-pastel-creamDark bg-white text-gray-500 hover:bg-pastel-cream/60 transition-colors flex items-center justify-center"
+          className="h-8 w-8 rounded-lg border border-pastel-creamDark bg-white text-gray-500 hover:bg-pastel-cream/60 transition-colors flex items-center justify-center shadow-sm"
           aria-label={mode === 'wheel' ? 'Schakel naar standaard datumkiezer' : 'Schakel naar Apple scroll picker'}
           title={mode === 'wheel' ? 'Standaard datumkiezer' : 'Apple scroll kiezen'}
         >
@@ -125,7 +124,7 @@ export default function DatePickerField({ value, onChange }) {
       </div>
 
       {mode === 'wheel' ? (
-        <div className="rounded-2xl border border-pastel-creamDark bg-white px-2 py-2" style={{ overscrollBehavior: 'contain' }}>
+        <div className="rounded-2xl border border-pastel-creamDark bg-gradient-to-b from-white to-pastel-cream/35 px-2 py-2" style={{ overscrollBehavior: 'contain' }}>
           <div className="flex items-stretch gap-2">
             <div className="w-12 flex-shrink-0 flex items-center justify-center rounded-lg bg-gradient-to-br from-accent-mint to-pastel-mintDark text-sm font-bold text-white shadow-soft uppercase tracking-wide">
               {liveWeekdayShort}
@@ -142,7 +141,7 @@ export default function DatePickerField({ value, onChange }) {
                   dragSensitivity={4}
                   scrollSensitivity={4}
                   classNames={{
-                    optionItem: 'text-gray-400 text-base transition-colors',
+                    optionItem: 'text-gray-400 text-base font-medium transition-colors',
                     highlightItem: 'text-gray-800 font-semibold text-base',
                     highlightWrapper: 'h-9 bg-pastel-mint/20 border-y border-l border-accent-mint/30 rounded-l-lg',
                   }}
@@ -157,7 +156,7 @@ export default function DatePickerField({ value, onChange }) {
                   dragSensitivity={4}
                   scrollSensitivity={4}
                   classNames={{
-                    optionItem: 'text-gray-400 text-sm transition-colors',
+                    optionItem: 'text-gray-400 text-sm font-medium transition-colors',
                     highlightItem: 'text-gray-800 font-semibold text-sm',
                     highlightWrapper: 'h-9 bg-pastel-mint/20 border-y border-accent-mint/30',
                   }}
@@ -172,7 +171,7 @@ export default function DatePickerField({ value, onChange }) {
                   dragSensitivity={4}
                   scrollSensitivity={4}
                   classNames={{
-                    optionItem: 'text-gray-400 text-base transition-colors',
+                    optionItem: 'text-gray-400 text-base font-medium transition-colors',
                     highlightItem: 'text-gray-800 font-semibold text-base',
                     highlightWrapper: 'h-9 bg-pastel-mint/20 border-y border-r border-accent-mint/30 rounded-r-lg',
                   }}
