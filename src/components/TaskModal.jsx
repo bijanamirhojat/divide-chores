@@ -274,7 +274,7 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
   return (
     <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-end z-50 animate-fade-in" onClick={onClose}>
       <div 
-        className="bg-white rounded-t-3xl w-full max-h-[90vh] overflow-y-auto shadow-soft-lg animate-slide-up"
+        className="bg-white rounded-t-3xl w-full max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-soft-lg animate-slide-up"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-gray-100">
@@ -352,7 +352,7 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
                     type="date"
                     value={scheduledDate}
                     onChange={e => setScheduledDate(e.target.value)}
-                    className="input-field w-full"
+                    className="input-field w-full max-w-full min-w-0"
                   />
                   <p className="text-xs text-gray-400 mt-1.5 capitalize">{formatDateLabel(scheduledDate)}</p>
                 </div>
@@ -474,7 +474,7 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
                     type="date"
                     value={scheduledDate}
                     onChange={e => setScheduledDate(e.target.value)}
-                    className="input-field w-full"
+                    className="input-field w-full max-w-full min-w-0"
                   />
                   <p className="text-xs text-gray-400 mt-1.5 capitalize">{formatDateLabel(scheduledDate)}</p>
                 </div>
