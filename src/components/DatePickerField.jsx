@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import Picker from 'react-mobile-picker'
+import { WheelPicker, WheelPickerWrapper } from '@ncdai/react-wheel-picker'
+import '@ncdai/react-wheel-picker/style.css'
 
 const MONTH_NAMES = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december']
 
@@ -35,25 +36,24 @@ function formatDateLabel(dateStr) {
 
 export default function DatePickerField({ value, onChange }) {
   const [mode, setMode] = useState('wheel')
-  const [tickPulse, setTickPulse] = useState(0)
   const parsed = parseDate(value)
   const [pickerValue, setPickerValue] = useState(() => ({
-    day: String(parsed.day),
-    month: String(parsed.month),
-    year: String(parsed.year),
+    day: parsed.day,
+    month: parsed.month,
+    year: parsed.year,
   }))
 
   useEffect(() => {
     setPickerValue({
-      day: String(parsed.day),
-      month: String(parsed.month),
-      year: String(parsed.year),
+      day: parsed.day,
+      month: parsed.month,
+      year: parsed.year,
     })
   }, [value])
 
-  const selectedYear = Number(pickerValue.year)
-  const selectedMonth = Number(pickerValue.month)
-  const selectedDay = Number(pickerValue.day)
+  const selectedYear = pickerValue.year
+  const selectedMonth = pickerValue.month
+  const selectedDay = pickerValue.day
 
   const yearNow = new Date().getFullYear()
   const yearStart = Math.min(yearNow - 2, selectedYear - 5)
@@ -61,25 +61,38 @@ export default function DatePickerField({ value, onChange }) {
 
   const monthDays = daysInMonth(selectedYear, selectedMonth)
 
-  function updateDate(nextYear, nextMonth, nextDay) {
-    const validDay = Math.min(nextDay, daysInMonth(nextYear, nextMonth))
-    onChange(`${nextYear}-${pad2(nextMonth)}-${pad2(validDay)}`)
-  }
-
-  const monthOptions = useMemo(
-    () => MONTH_NAMES.map((month, idx) => ({ value: String(idx + 1), label: month })),
-    []
-  )
+  const monthOptions = useMemo(() => MONTH_NAMES.map((month, idx) => ({ value: idx + 1, label: month })), [])
 
   const dayOptions = useMemo(
-    () => Array.from({ length: monthDays }, (_, i) => ({ value: String(i + 1), label: String(i + 1) })),
+    () => Array.from({ length: monthDays }, (_, i) => ({ value: i + 1, label: String(i + 1) })),
     [monthDays]
   )
 
   const yearOptions = useMemo(
-    () => Array.from({ length: yearEnd - yearStart + 1 }, (_, i) => ({ value: String(yearStart + i), label: String(yearStart + i) })),
+    () => Array.from({ length: yearEnd - yearStart + 1 }, (_, i) => ({ value: yearStart + i, label: String(yearStart + i) })),
     [yearEnd, yearStart]
   )
+
+  function commitNext(next) {
+    const clampedDay = Math.min(next.day, daysInMonth(next.year, next.month))
+    const normalized = {
+      day: clampedDay,
+      month: next.month,
+      year: next.year,
+    }
+    setPickerValue(normalized)
+    onChange(`${normalized.year}-${pad2(normalized.month)}-${pad2(normalized.day)}`)
+  }
+
+  useEffect(() => {
+    if (selectedDay > monthDays) {
+      commitNext({
+        day: monthDays,
+        month: selectedMonth,
+        year: selectedYear,
+      })
+    }
+  }, [monthDays, selectedDay, selectedMonth, selectedYear])
 
   const liveLabel = useMemo(() => {
     const clampedDay = Math.min(selectedDay, daysInMonth(selectedYear, selectedMonth))
@@ -112,79 +125,59 @@ export default function DatePickerField({ value, onChange }) {
       </div>
 
       {mode === 'wheel' ? (
-        <div
-          className="rounded-2xl border border-pastel-creamDark bg-white px-2 py-2"
-          style={{ overscrollBehavior: 'contain' }}
-          onTouchMove={(e) => e.stopPropagation()}
-          onWheel={(e) => e.stopPropagation()}
-        >
+        <div className="rounded-2xl border border-pastel-creamDark bg-white px-2 py-2" style={{ overscrollBehavior: 'contain' }}>
           <div className="flex items-stretch gap-2">
             <div className="w-12 flex-shrink-0 flex items-center justify-center rounded-lg bg-gradient-to-br from-accent-mint to-pastel-mintDark text-sm font-bold text-white shadow-soft uppercase tracking-wide">
               {liveWeekdayShort}
             </div>
             <div className="relative flex-1" style={{ overscrollBehavior: 'contain' }}>
-              <div className="pointer-events-none absolute inset-x-0 top-1/2 h-9 -translate-y-1/2 rounded-lg border border-accent-mint/30 bg-pastel-mint/20" />
-              <div key={tickPulse} className="pointer-events-none absolute inset-x-0 top-1/2 h-9 -translate-y-1/2 rounded-lg border border-accent-mint/40 animate-picker-tick" />
-              <Picker
-                value={pickerValue}
-                onChange={(next) => {
-                  const nextYear = Number(next.year)
-                  const nextMonth = Number(next.month)
-                  const nextDay = Number(next.day)
-                  const clampedDay = Math.min(nextDay, daysInMonth(nextYear, nextMonth))
-                  const nextState = {
-                    day: String(clampedDay),
-                    month: String(nextMonth),
-                    year: String(nextYear),
-                  }
-                  setPickerValue(nextState)
-                  updateDate(nextYear, nextMonth, clampedDay)
-                  setTickPulse(v => v + 1)
-                  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-                    navigator.vibrate(8)
-                  }
-                }}
-                height={180}
-                itemHeight={36}
-                wheelMode="natural"
-                className="flex items-center"
-              >
-                <Picker.Column name="day" className="flex-1 text-center">
-                  {dayOptions.map((opt) => (
-                    <Picker.Item key={opt.value} value={opt.value} className="text-center text-gray-400">
-                      {({ selected }) => (
-                        <div className={`text-base transition-colors ${selected ? 'font-semibold text-gray-800' : 'text-gray-400'}`}>
-                          {opt.label}
-                        </div>
-                      )}
-                    </Picker.Item>
-                  ))}
-                </Picker.Column>
-
-                <Picker.Column name="month" className="flex-[1.4] text-center">
-                  {monthOptions.map((opt) => (
-                    <Picker.Item key={opt.value} value={opt.value} className="text-center text-gray-400">
-                      {({ selected }) => (
-                        <div className={`text-sm transition-colors ${selected ? 'font-semibold text-gray-800' : 'text-gray-400'}`}>
-                          {opt.label}
-                        </div>
-                      )}
-                    </Picker.Item>
-                  ))}
-                </Picker.Column>
-
-                <Picker.Column name="year" className="flex-1 text-center">
-                  {yearOptions.map((opt) => (
-                    <Picker.Item key={opt.value} value={opt.value} className="text-center text-gray-400">
-                      {({ selected }) => (
-                        <div className={`text-base transition-colors ${selected ? 'font-semibold text-gray-800' : 'text-gray-400'}`}>
-                          {opt.label}
-                        </div>
-                      )}
-                    </Picker.Item>
-                  ))}
-                </Picker.Column>
-              </Picker>
+              <WheelPickerWrapper className="h-[180px]">
+                <WheelPicker
+                  options={dayOptions}
+                  value={selectedDay}
+                  onValueChange={(day) => commitNext({ day, month: selectedMonth, year: selectedYear })}
+                  infinite={false}
+                  optionItemHeight={36}
+                  visibleCount={20}
+                  dragSensitivity={4}
+                  scrollSensitivity={4}
+                  classNames={{
+                    optionItem: 'text-gray-400 text-base transition-colors',
+                    highlightItem: 'text-gray-800 font-semibold text-base',
+                    highlightWrapper: 'h-9 bg-pastel-mint/20 border-y border-l border-accent-mint/30 rounded-l-lg',
+                  }}
+                />
+                <WheelPicker
+                  options={monthOptions}
+                  value={selectedMonth}
+                  onValueChange={(month) => commitNext({ day: selectedDay, month, year: selectedYear })}
+                  infinite={false}
+                  optionItemHeight={36}
+                  visibleCount={20}
+                  dragSensitivity={4}
+                  scrollSensitivity={4}
+                  classNames={{
+                    optionItem: 'text-gray-400 text-sm transition-colors',
+                    highlightItem: 'text-gray-800 font-semibold text-sm',
+                    highlightWrapper: 'h-9 bg-pastel-mint/20 border-y border-accent-mint/30',
+                  }}
+                />
+                <WheelPicker
+                  options={yearOptions}
+                  value={selectedYear}
+                  onValueChange={(year) => commitNext({ day: selectedDay, month: selectedMonth, year })}
+                  infinite={false}
+                  optionItemHeight={36}
+                  visibleCount={20}
+                  dragSensitivity={4}
+                  scrollSensitivity={4}
+                  classNames={{
+                    optionItem: 'text-gray-400 text-base transition-colors',
+                    highlightItem: 'text-gray-800 font-semibold text-base',
+                    highlightWrapper: 'h-9 bg-pastel-mint/20 border-y border-r border-accent-mint/30 rounded-r-lg',
+                  }}
+                />
+              </WheelPickerWrapper>
             </div>
           </div>
         </div>
