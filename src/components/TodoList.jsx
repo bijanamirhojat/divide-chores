@@ -418,22 +418,16 @@ export default function TodoList({ show, onClose, currentUser, onTaskCompleted }
 function TodoItemModal({ item, saving, onSave, onClose, onDelete }) {
   const [title, setTitle] = useState(item?.title || '')
   const [description, setDescription] = useState(item?.description || '')
-  const [modalMaxHeight, setModalMaxHeight] = useState(null)
+  const [viewportState, setViewportState] = useState(() => getViewportState())
   const activeFieldRef = useRef(null)
+  const modalBodyRef = useRef(null)
+  const focusTimerRef = useRef(null)
 
   const isEditing = !!item
 
   useEffect(() => {
     function updateViewportLayout() {
-      const viewport = window.visualViewport
-      const viewportHeight = viewport?.height ?? window.innerHeight
-      setModalMaxHeight(Math.max(320, Math.floor(viewportHeight - 12)))
-
-      if (activeFieldRef.current) {
-        window.setTimeout(() => {
-          activeFieldRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-        }, 60)
-      }
+      setViewportState(getViewportState())
     }
 
     updateViewportLayout()
@@ -442,20 +436,62 @@ function TodoItemModal({ item, saving, onSave, onClose, onDelete }) {
     viewport?.addEventListener('resize', updateViewportLayout)
     viewport?.addEventListener('scroll', updateViewportLayout)
     window.addEventListener('resize', updateViewportLayout)
+    window.addEventListener('orientationchange', updateViewportLayout)
 
     return () => {
       viewport?.removeEventListener('resize', updateViewportLayout)
       viewport?.removeEventListener('scroll', updateViewportLayout)
       window.removeEventListener('resize', updateViewportLayout)
+      window.removeEventListener('orientationchange', updateViewportLayout)
     }
   }, [])
 
+  useEffect(() => {
+    if (activeFieldRef.current) {
+      scrollFieldIntoView(activeFieldRef.current, 80)
+    }
+  }, [viewportState.height, viewportState.offsetTop])
+
+  useEffect(() => {
+    return () => {
+      if (focusTimerRef.current) {
+        window.clearTimeout(focusTimerRef.current)
+      }
+    }
+  }, [])
+
+  function scrollFieldIntoView(target, delay = 0) {
+    if (focusTimerRef.current) {
+      window.clearTimeout(focusTimerRef.current)
+    }
+
+    focusTimerRef.current = window.setTimeout(() => {
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+
+      const container = modalBodyRef.current
+      if (!container) return
+
+      const fieldRect = target.getBoundingClientRect()
+      const containerRect = container.getBoundingClientRect()
+      const topGap = fieldRect.top - containerRect.top
+      const bottomGap = containerRect.bottom - fieldRect.bottom
+
+      if (bottomGap < 24) {
+        container.scrollBy({ top: 24 - bottomGap, behavior: 'smooth' })
+      } else if (topGap < 24) {
+        container.scrollBy({ top: topGap - 24, behavior: 'smooth' })
+      }
+    }, delay)
+  }
+
   function handleFieldFocus(e) {
     activeFieldRef.current = e.target
-    window.setTimeout(() => {
-      e.target.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    }, 250)
+    scrollFieldIntoView(e.target, 250)
   }
+
+  const keyboardInset = Math.max(0, window.innerHeight - viewportState.height - viewportState.offsetTop)
+  const modalMaxHeight = Math.max(320, Math.floor(viewportState.height - 8))
+  const formBottomPadding = 20 + keyboardInset
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -469,10 +505,22 @@ function TodoItemModal({ item, saving, onSave, onClose, onDelete }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-end z-[60] animate-fade-in" onClick={onClose}>
+    <div
+      className="fixed left-0 right-0 bg-gray-900/30 backdrop-blur-sm flex items-end z-[60] animate-fade-in"
+      style={{
+        top: `${viewportState.offsetTop}px`,
+        height: `${viewportState.height}px`,
+      }}
+      onClick={onClose}
+    >
       <div
-        className="bg-white rounded-t-3xl w-full max-h-[90vh] overflow-y-auto shadow-soft-lg animate-slide-up"
-        style={{ maxHeight: modalMaxHeight ? `${modalMaxHeight}px` : undefined }}
+        ref={modalBodyRef}
+        className="bg-white rounded-t-3xl w-full overflow-y-auto shadow-soft-lg animate-slide-up"
+        style={{
+          maxHeight: `${modalMaxHeight}px`,
+          overscrollBehaviorY: 'contain',
+          WebkitOverflowScrolling: 'touch',
+        }}
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-gray-100">
@@ -491,7 +539,7 @@ function TodoItemModal({ item, saving, onSave, onClose, onDelete }) {
         <form
           onSubmit={handleSubmit}
           className="p-5 space-y-5"
-          style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}
+          style={{ paddingBottom: `calc(${formBottomPadding}px + env(safe-area-inset-bottom, 0px))` }}
         >
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">Taak</label>
@@ -550,6 +598,22 @@ function TodoItemModal({ item, saving, onSave, onClose, onDelete }) {
       </div>
     </div>
   )
+}
+
+function getViewportState() {
+  const viewport = window.visualViewport
+
+  if (!viewport) {
+    return {
+      height: window.innerHeight,
+      offsetTop: 0,
+    }
+  }
+
+  return {
+    height: Math.round(viewport.height),
+    offsetTop: Math.round(viewport.offsetTop),
+  }
 }
 
 function getWeekNumber(date) {
