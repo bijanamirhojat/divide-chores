@@ -418,8 +418,44 @@ export default function TodoList({ show, onClose, currentUser, onTaskCompleted }
 function TodoItemModal({ item, saving, onSave, onClose, onDelete }) {
   const [title, setTitle] = useState(item?.title || '')
   const [description, setDescription] = useState(item?.description || '')
+  const [modalMaxHeight, setModalMaxHeight] = useState(null)
+  const activeFieldRef = useRef(null)
 
   const isEditing = !!item
+
+  useEffect(() => {
+    function updateViewportLayout() {
+      const viewport = window.visualViewport
+      const viewportHeight = viewport?.height ?? window.innerHeight
+      setModalMaxHeight(Math.max(320, Math.floor(viewportHeight - 12)))
+
+      if (activeFieldRef.current) {
+        window.setTimeout(() => {
+          activeFieldRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        }, 60)
+      }
+    }
+
+    updateViewportLayout()
+
+    const viewport = window.visualViewport
+    viewport?.addEventListener('resize', updateViewportLayout)
+    viewport?.addEventListener('scroll', updateViewportLayout)
+    window.addEventListener('resize', updateViewportLayout)
+
+    return () => {
+      viewport?.removeEventListener('resize', updateViewportLayout)
+      viewport?.removeEventListener('scroll', updateViewportLayout)
+      window.removeEventListener('resize', updateViewportLayout)
+    }
+  }, [])
+
+  function handleFieldFocus(e) {
+    activeFieldRef.current = e.target
+    window.setTimeout(() => {
+      e.target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 250)
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -436,6 +472,7 @@ function TodoItemModal({ item, saving, onSave, onClose, onDelete }) {
     <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-end z-[60] animate-fade-in" onClick={onClose}>
       <div
         className="bg-white rounded-t-3xl w-full max-h-[90vh] overflow-y-auto shadow-soft-lg animate-slide-up"
+        style={{ maxHeight: modalMaxHeight ? `${modalMaxHeight}px` : undefined }}
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-gray-100">
@@ -451,13 +488,18 @@ function TodoItemModal({ item, saving, onSave, onClose, onDelete }) {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+        <form
+          onSubmit={handleSubmit}
+          className="p-5 space-y-5"
+          style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">Taak</label>
             <input
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
+              onFocus={handleFieldFocus}
               placeholder="Bijv. Lamp vervangen"
               className="input-field"
               required
@@ -470,6 +512,7 @@ function TodoItemModal({ item, saving, onSave, onClose, onDelete }) {
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
+              onFocus={handleFieldFocus}
               placeholder="Extra informatie..."
               className="input-field resize-none"
               rows={2}
