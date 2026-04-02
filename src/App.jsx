@@ -9,6 +9,7 @@ import TaskModal from './components/TaskModal'
 import Menu from './components/Menu'
 import Stats from './components/Stats'
 import Wishlist from './components/Wishlist'
+import TodoList from './components/TodoList'
 import Confetti from './components/Confetti'
 
 function UpdateBanner() {
@@ -104,6 +105,7 @@ export default function App() {
   const [showMenu, setShowMenu] = useState(false)
   const [showStats, setShowStats] = useState(false)
   const [showWishlist, setShowWishlist] = useState(false)
+  const [showTodoList, setShowTodoList] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [showUpdateBanner, setShowUpdateBanner] = useState(false)
   const [showBiometricSetup, setShowBiometricSetup] = useState(false)
@@ -113,6 +115,7 @@ export default function App() {
     return params.get('mode') === 'presentation'
   })
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false)
+  const [taskRefreshKey, setTaskRefreshKey] = useState(0)
 
   useEffect(() => {
     loadUsers()
@@ -249,6 +252,11 @@ export default function App() {
     setTimeout(() => setShowConfetti(false), 2000)
   }
 
+  function handleExternalTaskComplete() {
+    setTaskRefreshKey(key => key + 1)
+    handleComplete()
+  }
+
   if (!currentUser) {
     return (
       <>
@@ -278,6 +286,7 @@ export default function App() {
         currentUser={currentUser}
         users={users}
         onComplete={handleComplete}
+        refreshKey={taskRefreshKey}
         presentationMode={presentationMode}
         onTogglePresentation={() => setPresentationMode(!presentationMode)}
         onOpenMenu={() => setShowMenu(true)}
@@ -299,6 +308,10 @@ export default function App() {
           setShowMenu(false)
           setShowWishlist(true)
         }}
+        onOpenTodoList={() => {
+          setShowMenu(false)
+          setShowTodoList(true)
+        }}
       />
 
       <Stats 
@@ -312,6 +325,13 @@ export default function App() {
         onClose={() => setShowWishlist(false)}
         currentUser={currentUser}
         users={users}
+      />
+
+      <TodoList
+        show={showTodoList}
+        onClose={() => setShowTodoList(false)}
+        currentUser={currentUser}
+        onTaskCompleted={handleExternalTaskComplete}
       />
     </div>
   )

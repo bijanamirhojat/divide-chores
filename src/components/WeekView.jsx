@@ -6,7 +6,7 @@ import TaskModal from './TaskModal'
 const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
 const DAY_NAMES = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
 
-export default function WeekView({ currentUser, users, onComplete, presentationMode, onTogglePresentation, onOpenMenu }) {
+export default function WeekView({ currentUser, users, onComplete, refreshKey, presentationMode, onTogglePresentation, onOpenMenu }) {
   const [tasks, setTasks] = useState([])
   const [completedTasks, setCompletedTasks] = useState(null)  // Start with null, not []
   const [meals, setMeals] = useState([])
@@ -190,7 +190,7 @@ export default function WeekView({ currentUser, users, onComplete, presentationM
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [selectedWeekOffset])
+  }, [selectedWeekOffset, refreshKey])
 
   async function loadMeals() {
     const weekDates = getWeekDates(selectedWeekOffset)

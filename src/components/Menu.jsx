@@ -8,7 +8,7 @@ import Toggle from './Toggle'
 const APP_VERSION = import.meta.env.APP_VERSION || '0.0.0'
 const BUILD_ID = import.meta.env.BUILD_ID || 'dev'
 
-export default function Menu({ show, onClose, onLogout, currentUser, presentationMode, onTogglePresentation, onUpdateUser, onOpenStats, onOpenWishlist }) {
+export default function Menu({ show, onClose, onLogout, currentUser, presentationMode, onTogglePresentation, onUpdateUser, onOpenStats, onOpenWishlist, onOpenTodoList }) {
   const [showHistory, setShowHistory] = useState(false)
   const [completedTasks, setCompletedTasks] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
@@ -209,6 +209,17 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
   }
 
   const menuItems = [
+    {
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-7 9l2 2 4-4" />
+        </svg>
+      ),
+      label: 'To-do lijst',
+      onClick: onOpenTodoList,
+      bg: 'bg-pastel-mint/30',
+      iconBg: 'bg-pastel-mint',
+    },
     {
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
