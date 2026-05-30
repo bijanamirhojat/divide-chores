@@ -210,7 +210,7 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
   async function loadTasks() {
     const { data } = await supabase
       .from('tasks')
-      .select('*')
+      .select('*, areas(id, name), task_people(person_id)')
       .order('created_at', { ascending: false })
     
     if (data) setTasks(data)

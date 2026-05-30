@@ -7,6 +7,8 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
     : assignedUser?.name || 'Niemand'
 
   const assigneeAvatar = task.is_both ? null : assignedUser?.avatar_url
+  const areaName = task.areas?.name
+  const relatedPeopleCount = task.task_people?.length || 0
 
   const assigneeConfig = {
     'Samen': { bg: 'bg-pastel-lavender', text: 'text-pastel-lavenderDark', dot: 'bg-pastel-lavenderDark', borderColor: '#B89DD4' },
@@ -267,6 +269,20 @@ export default function TaskItem({ task, isCompleted, onComplete, onUncomplete, 
               ) : null}
               {assignee}
             </span>
+            {(areaName || relatedPeopleCount > 0) && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {areaName && (
+                  <span className="inline-flex items-center text-[11px] px-2 py-1 rounded-lg bg-pastel-peach/30 text-pastel-peachDark">
+                    {areaName}
+                  </span>
+                )}
+                {relatedPeopleCount > 0 && (
+                  <span className="inline-flex items-center text-[11px] px-2 py-1 rounded-lg bg-pastel-lavender/30 text-pastel-lavenderDark">
+                    {relatedPeopleCount} gekoppeld
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">

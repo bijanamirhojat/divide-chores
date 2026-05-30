@@ -47,6 +47,8 @@ function sendNewTaskPush({ creatorName, taskTitle, dayName, targetUserIds }) {
 
 export default function TaskModal({ scheduledDate: defaultDate, onClose, users, currentUser, onTaskCreated, editTask, onMealAdded, editMeal, onMealUpdated, onMealDeleted }) {
   const [mode, setMode] = useState(editMeal ? 'meal' : 'task')
+  const [areas, setAreas] = useState([])
+  const [people, setPeople] = useState([])
   
   const [title, setTitle] = useState(editTask?.title || '')
   const [description, setDescription] = useState(editTask?.description || '')
@@ -60,6 +62,8 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
     return 'both'
   })
   const [recurrence, setRecurrence] = useState(editTask?.recurrence ?? null)
+  const [areaId, setAreaId] = useState(editTask?.area_id || '')
+  const [personIds, setPersonIds] = useState(editTask?.task_people?.map((item) => item.person_id) || [])
   const [loading, setLoading] = useState(false)
   
   const [mealName, setMealName] = useState(editMeal?.meal_name || '')
@@ -127,6 +131,37 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
   const isEditing = !!editTask
   const isEditingMeal = !!editMeal
 
+  useEffect(() => {
+    loadLifeOsOptions()
+  }, [])
+
+  async function loadLifeOsOptions() {
+    const [areasResult, peopleResult] = await Promise.all([
+      supabase.from('areas').select('*').order('name'),
+      supabase.from('people').select('*').order('name'),
+    ])
+
+    setAreas(areasResult.data || [])
+    setPeople(peopleResult.data || [])
+  }
+
+  async function saveTaskPeople(taskId, nextPersonIds) {
+    await supabase.from('task_people').delete().eq('task_id', taskId)
+
+    if (!nextPersonIds.length) return
+
+    await supabase.from('task_people').insert(
+      nextPersonIds.map((personId) => ({
+        task_id: taskId,
+        person_id: personId,
+      }))
+    )
+  }
+
+  function handleTogglePerson(personId) {
+    setPersonIds((prev) => prev.includes(personId) ? prev.filter((id) => id !== personId) : [...prev, personId])
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     
@@ -159,17 +194,19 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
             recurrence: recurrence,
             assigned_to: taskAssignedTo,
             is_both: taskIsBoth,
+            area_id: areaId || null,
           })
           .eq('id', editTask.id)
-  
+
         setLoading(false)
-  
+
         if (!error) {
+          await saveTaskPeople(editTask.id, personIds)
           onTaskCreated()
           onClose()
         }
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('tasks')
           .insert({
             title: title.trim(),
@@ -178,12 +215,16 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
             recurrence: recurrence,
             assigned_to: taskAssignedTo,
             is_both: taskIsBoth,
-            created_by: currentUser.id
+            created_by: currentUser.id,
+            area_id: areaId || null,
           })
-  
+          .select()
+          .single()
+
         setLoading(false)
-  
-        if (!error) {
+
+        if (!error && data) {
+          await saveTaskPeople(data.id, personIds)
           // Send push notification for new task (fire-and-forget)
           const targetUserIds = []
           if (taskIsBoth) {
@@ -420,6 +461,39 @@ export default function TaskModal({ scheduledDate: defaultDate, onClose, users, 
                   })}
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">Area</label>
+                <select value={areaId} onChange={(e) => setAreaId(e.target.value)} className="input-field">
+                  <option value="">Geen domein</option>
+                  {areas.map((area) => (
+                    <option key={area.id} value={area.id}>{area.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {people.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Gerelateerde personen</label>
+                  <div className="flex flex-wrap gap-2">
+                    {people.map((person) => {
+                      const isSelected = personIds.includes(person.id)
+                      return (
+                        <button
+                          key={person.id}
+                          type="button"
+                          onClick={() => handleTogglePerson(person.id)}
+                          className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                            isSelected ? 'bg-accent-mint text-white shadow-soft' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          }`}
+                        >
+                          {person.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <>

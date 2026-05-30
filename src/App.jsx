@@ -11,6 +11,7 @@ import Stats from './components/Stats'
 import Wishlist from './components/Wishlist'
 import TodoList from './components/TodoList'
 import Confetti from './components/Confetti'
+import LifeOS from './components/LifeOS'
 
 function UpdateBanner() {
   return (
@@ -106,6 +107,7 @@ export default function App() {
   const [showStats, setShowStats] = useState(false)
   const [showWishlist, setShowWishlist] = useState(false)
   const [showTodoList, setShowTodoList] = useState(false)
+  const [showLifeOS, setShowLifeOS] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [showUpdateBanner, setShowUpdateBanner] = useState(false)
   const [showBiometricSetup, setShowBiometricSetup] = useState(false)
@@ -312,6 +314,10 @@ export default function App() {
           setShowMenu(false)
           setShowTodoList(true)
         }}
+        onOpenLifeOS={() => {
+          setShowMenu(false)
+          setShowLifeOS(true)
+        }}
       />
 
       <Stats 
@@ -332,6 +338,13 @@ export default function App() {
         onClose={() => setShowTodoList(false)}
         currentUser={currentUser}
         onTaskCompleted={handleExternalTaskComplete}
+      />
+
+      <LifeOS
+        show={showLifeOS}
+        onClose={() => setShowLifeOS(false)}
+        currentUser={currentUser}
+        users={users}
       />
     </div>
   )
