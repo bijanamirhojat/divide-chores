@@ -8,7 +8,7 @@ import Toggle from './Toggle'
 const APP_VERSION = import.meta.env.APP_VERSION || '0.0.0'
 const BUILD_ID = import.meta.env.BUILD_ID || 'dev'
 
-export default function Menu({ show, onClose, onLogout, currentUser, presentationMode, onTogglePresentation, onUpdateUser, onOpenStats, onOpenWishlist, onOpenTodoList }) {
+export default function Menu({ show, onClose, onLogout, currentUser, presentationMode, onTogglePresentation, onUpdateUser, onOpenStats, onOpenWishlist, onOpenTodoList, onOpenLifeOS }) {
   const [showHistory, setShowHistory] = useState(false)
   const [completedTasks, setCompletedTasks] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
@@ -241,6 +241,17 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
       onClick: onOpenWishlist,
       bg: 'bg-pastel-rose/30',
       iconBg: 'bg-pastel-rose',
+    },
+    {
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3l7.5 4.5v9L12 21l-7.5-4.5v-9L12 3zm0 0v18m7.5-13.5L12 12 4.5 7.5" />
+        </svg>
+      ),
+      label: 'Life OS',
+      onClick: onOpenLifeOS,
+      bg: 'bg-pastel-lavender/30',
+      iconBg: 'bg-pastel-lavender',
     },
     {
       icon: (

@@ -3,7 +3,9 @@ dist
 .DS_Store
 *.local
 .env
+deploy/pi/api.env
 *.sql
+!supabase/migrations/*.sql
 supabase-edge-functions/
 scripts/local/
 backups/

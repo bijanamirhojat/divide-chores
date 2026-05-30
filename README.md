@@ -19,6 +19,45 @@ Presentatie modus: **https://bijanamirhojat.github.io/divide-chores/?mode=presen
 - **Backend/DB**: Supabase (PostgreSQL)
 - **Auth**: PIN-based (gedeeld)
 - **Hosting**: GitHub Pages
+- **Integration API**: In-repo Hono service for Life OS foundation
+
+---
+
+## Life OS Foundation
+
+Er is nu een eerste API-laag en migratiestructuur aanwezig voor toekomstige uitbreidingen:
+
+- `api/` bevat de REST API
+- `supabase/migrations/` bevat tracked SQL migraties
+- `docs/life-os-foundation.md` beschrijft de nieuwe foundation
+
+Belangrijke endpoints:
+
+- `GET /api/health`
+- `GET|POST|PATCH|DELETE /api/tasks`
+- `GET|POST|PATCH /api/people`
+- `GET|POST|PATCH /api/life-events`
+- `GET|POST /api/areas`
+- `GET|POST /api/knowledge`
+- `GET /api/openapi.json`
+- `GET /api/docs`
+
+Lokale API env:
+
+- `VITE_SUPABASE_URL` kan uit de bestaande `.env` komen
+- `SUPABASE_SERVICE_ROLE_KEY` moet aanwezig zijn voor de API
+
+Deploy model:
+
+- Frontend deployt naar GitHub Pages
+- API draait als Docker container op de Pi
+- Hermes gebruikt de lokale API op `http://127.0.0.1:8787`
+
+Token genereren:
+
+```bash
+npm run api:token -- --label anne-local
+```
 
 ---
 
@@ -141,6 +180,34 @@ De repo heeft een GitHub Action workflow die automatisch bouwt bij elke push naa
 **Belangrijk**: Voeg de volgende GitHub Secrets toe in repo Settings > Secrets and variables > Actions:
 - `VITE_SUPABASE_URL` - Je Supabase project URL
 - `VITE_SUPABASE_ANON_KEY` - Je Supabase anon key
+
+## API op de Pi draaien
+
+De Node API draait niet op GitHub Pages. Gebruik daarvoor Docker op de Pi.
+
+Belangrijke files:
+
+- `Dockerfile.api`
+- `deploy/pi/compose.yml`
+- `deploy/pi/api.env.example`
+- `docs/pi-deploy.md`
+
+Kort stappenplan:
+
+```bash
+cp deploy/pi/api.env.example deploy/pi/api.env
+docker compose -f deploy/pi/compose.yml up -d --build
+curl http://127.0.0.1:8787/api/health
+```
+
+Hermes config:
+
+```bash
+LIFE_OS_API_BASE_URL=http://127.0.0.1:8787
+LIFE_OS_API_TOKEN=<api-token>
+```
+
+Gebruik niet de `SUPABASE_SERVICE_ROLE_KEY` in Hermes.
 
 ---
 

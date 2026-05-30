@@ -1,0 +1,21 @@
+services:
+  life-os-api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.api
+    container_name: life-os-api
+    restart: unless-stopped
+    env_file:
+      - ./api.env
+    ports:
+      - "127.0.0.1:8787:8787"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8787/api/health').then((res) => { if (!res.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
