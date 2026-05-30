@@ -3,7 +3,7 @@ export const openApiDocument = {
   info: {
     title: 'Divide/Chores Life OS API',
     version: '1.0.0',
-    description: 'Foundation API for tasks, people, life events, calendar sync, areas, knowledge, and briefings.',
+    description: 'Foundation API for tasks, people, life events, inbound mail, calendar sync, areas, knowledge, and briefings.',
   },
   components: {
     securitySchemes: {
@@ -51,6 +51,21 @@ export const openApiDocument = {
     '/api/knowledge': {
       get: { summary: 'List knowledge entries', responses: { '200': { description: 'Knowledge list' } } },
       post: { summary: 'Create knowledge entry', responses: { '201': { description: 'Knowledge created' } } },
+    },
+    '/api/inbound-mail': {
+      post: { security: [{ bearerAuth: [] }], summary: 'Receive inbound mail webhook payload', responses: { '201': { description: 'Inbound mail stored' } } },
+    },
+    '/api/inbound-mail/unprocessed': {
+      get: { summary: 'List unprocessed inbound mail', responses: { '200': { description: 'Inbound mail list' } } },
+    },
+    '/api/inbound-mail/{id}': {
+      get: { summary: 'Get one inbound mail item', responses: { '200': { description: 'Inbound mail item' } } },
+    },
+    '/api/inbound-mail/{id}/mark-processed': {
+      post: { summary: 'Mark inbound mail processed', responses: { '200': { description: 'Inbound mail updated' } } },
+    },
+    '/api/inbound-mail/{id}/create-task': {
+      post: { summary: 'Create task from inbound mail', responses: { '201': { description: 'Task created from inbound mail' } } },
     },
     '/api/calendar/sources': {
       get: { summary: 'List calendar sources', responses: { '200': { description: 'Calendar source list' } } },

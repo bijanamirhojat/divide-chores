@@ -4,6 +4,8 @@ import { buildTodayBriefing } from './briefing.js'
 import { syncCalendarSources } from './calendar/sync.js'
 import { listCalendarEvents, listCalendarSources } from './calendar/store.js'
 import { addDays, parseBoolean, parseInteger, startOfDay } from './calendar/utils.js'
+import { inboundMailAuth } from './inbound-mail/auth.js'
+import { createInboundMail, getInboundMailById, listInboundMail, updateInboundMail } from './inbound-mail/store.js'
 import { openApiDocument, renderSwaggerUi } from './openapi.js'
 import { jsonError, normalizeIntegerArray, normalizeTags, pickDefined } from './utils.js'
 
@@ -83,6 +85,23 @@ async function syncJoinTable(db, table, sourceColumn, sourceId, targetColumn, id
   await db.from(table).insert(rows)
 }
 
+function normalizeAttachments(value) {
+  return Array.isArray(value) ? value : []
+}
+
+function buildInboundTaskDescription(mailItem) {
+  const sender = mailItem.original_from_email || mailItem.from_email || 'Onbekende afzender'
+  const senderName = mailItem.original_from_name || mailItem.from_name
+  const senderLine = senderName ? `${senderName} <${sender}>` : sender
+  const parts = [
+    `Afzender: ${senderLine}`,
+    `Ontvangen: ${mailItem.received_at}`,
+    mailItem.stripped_text_body || mailItem.text_body || null,
+  ].filter(Boolean)
+
+  return parts.join('\n\n')
+}
+
 export function createApp({ db }) {
   const app = new Hono()
   withDb(app, db)
@@ -90,6 +109,37 @@ export function createApp({ db }) {
   app.get('/api/health', (c) => c.json({ status: 'ok' }))
   app.get('/api/openapi.json', (c) => c.json(openApiDocument))
   app.get('/api/docs', (c) => c.html(renderSwaggerUi(openApiDocument)))
+
+  app.post('/api/inbound-mail', inboundMailAuth(), async (c) => {
+    const body = await c.req.json().catch(() => null)
+    if (!body?.source || !body?.subject) {
+      return jsonError(c, 400, 'source and subject are required')
+    }
+
+    const payload = {
+      source: String(body.source).trim(),
+      from_name: body.from_name ? String(body.from_name).trim() : null,
+      from_email: body.from_email ? String(body.from_email).trim().toLowerCase() : null,
+      to_email: body.to_email ? String(body.to_email).trim().toLowerCase() : null,
+      original_from_name: body.original_from_name ? String(body.original_from_name).trim() : null,
+      original_from_email: body.original_from_email ? String(body.original_from_email).trim().toLowerCase() : null,
+      subject: String(body.subject).trim(),
+      text_body: body.text_body ?? null,
+      html_body: body.html_body ?? null,
+      stripped_text_body: body.stripped_text_body ?? null,
+      attachments_json: normalizeAttachments(body.attachments_json),
+      message_id: body.message_id ? String(body.message_id).trim() : null,
+      received_at: body.received_at ?? new Date().toISOString(),
+      processed: false,
+      processed_at: null,
+      raw_payload: body.raw_payload ?? body,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await createInboundMail(c.get('db'), payload)
+    if (error) return jsonError(c, 500, 'Failed to store inbound mail', error.message)
+    return c.json(data, 201)
+  })
 
   app.use('/api/*', async (c, next) => {
     const publicPaths = ['/api/health', '/api/openapi.json', '/api/docs']
@@ -436,6 +486,69 @@ export function createApp({ db }) {
     } catch (error) {
       return jsonError(c, 500, 'Calendar sync failed', error.message)
     }
+  })
+
+  app.get('/api/inbound-mail/unprocessed', async (c) => {
+    const limit = parseInteger(c.req.query('limit'), 50)
+    const { data, error } = await listInboundMail(c.get('db'), { processed: false, limit })
+    if (error) return jsonError(c, 500, 'Failed to load unprocessed inbound mail', error.message)
+    return c.json(data)
+  })
+
+  app.get('/api/inbound-mail/:id', async (c) => {
+    const { data, error } = await getInboundMailById(c.get('db'), c.req.param('id'))
+    if (error) return jsonError(c, 500, 'Failed to load inbound mail', error.message)
+    if (!data) return jsonError(c, 404, 'Inbound mail not found')
+    return c.json(data)
+  })
+
+  app.post('/api/inbound-mail/:id/mark-processed', async (c) => {
+    const db = c.get('db')
+    const { data: item, error: loadError } = await getInboundMailById(db, c.req.param('id'))
+    if (loadError) return jsonError(c, 500, 'Failed to load inbound mail', loadError.message)
+    if (!item) return jsonError(c, 404, 'Inbound mail not found')
+
+    const { data, error } = await updateInboundMail(db, item.id, {
+      processed: true,
+      processed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    if (error) return jsonError(c, 500, 'Failed to update inbound mail', error.message)
+    return c.json(data)
+  })
+
+  app.post('/api/inbound-mail/:id/create-task', async (c) => {
+    const body = await c.req.json().catch(() => ({}))
+    const db = c.get('db')
+    const { data: item, error: loadError } = await getInboundMailById(db, c.req.param('id'))
+    if (loadError) return jsonError(c, 500, 'Failed to load inbound mail', loadError.message)
+    if (!item) return jsonError(c, 404, 'Inbound mail not found')
+
+    const scheduledDate = body.scheduled_date || toDateString(startOfDay(new Date()))
+    const { data: task, error: taskError } = await db
+      .from('tasks')
+      .insert({
+        title: String(body.title || item.subject).trim(),
+        description: body.description || buildInboundTaskDescription(item),
+        scheduled_date: scheduledDate,
+        recurrence: body.recurrence ?? null,
+        assigned_to: body.assigned_to ?? null,
+        is_both: Boolean(body.is_both),
+        created_by: body.created_by ?? null,
+        area_id: body.area_id ?? null,
+      })
+      .select()
+      .single()
+    if (taskError) return jsonError(c, 500, 'Failed to create task from inbound mail', taskError.message)
+
+    const { data: updatedMail, error: updateError } = await updateInboundMail(db, item.id, {
+      processed: true,
+      processed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    if (updateError) return jsonError(c, 500, 'Failed to mark inbound mail processed', updateError.message)
+
+    return c.json({ task, inbound_mail: updatedMail }, 201)
   })
 
   app.get('/api/briefing/today', async (c) => {

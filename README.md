@@ -37,6 +37,11 @@ Belangrijke endpoints:
 - `GET|POST|PATCH|DELETE /api/tasks`
 - `GET|POST|PATCH /api/people`
 - `GET|POST|PATCH /api/life-events`
+- `POST /api/inbound-mail`
+- `GET /api/inbound-mail/unprocessed`
+- `GET /api/inbound-mail/:id`
+- `POST /api/inbound-mail/:id/mark-processed`
+- `POST /api/inbound-mail/:id/create-task`
 - `GET /api/calendar/sources`
 - `GET /api/calendar/events`
 - `GET /api/calendar/upcoming`
@@ -52,6 +57,7 @@ Lokale API env:
 
 - `VITE_SUPABASE_URL` kan uit de bestaande `.env` komen
 - `SUPABASE_SERVICE_ROLE_KEY` moet aanwezig zijn voor de API
+- `INBOUND_MAIL_SECRET` beveiligt de inbound mail webhook route
 - kalender secrets blijven in env, bijvoorbeeld `CALDAV_ESTHER_SHARED_PASSWORD`
 
 Deploy model:
@@ -71,6 +77,48 @@ Calendar sync handmatig draaien:
 ```bash
 npm run calendar:sync
 ```
+
+## Inbound Mail
+
+Divide kan expliciet doorgestuurde mail ontvangen via een inbound webhook/API. Er wordt niets gepolld uit persoonlijke mailboxen.
+
+Belangrijke tabel:
+
+- `inbound_mail`
+
+Belangrijke endpoint-flow:
+
+- forwarded email -> provider/webhook -> `POST /api/inbound-mail` -> `inbound_mail`
+- Hermes/ANNE leest daarna `GET /api/inbound-mail/unprocessed`
+
+Voorbeeld webhook call:
+
+```bash
+curl -X POST http://127.0.0.1:8787/api/inbound-mail \
+  -H "Authorization: Bearer $INBOUND_MAIL_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source": "forward-email",
+    "from_name": "Anne",
+    "from_email": "anne@bijanlab.nl",
+    "to_email": "anne@bijanlab.nl",
+    "original_from_name": "Bol.com",
+    "original_from_email": "service@bol.com",
+    "subject": "Bestelling verzonden",
+    "text_body": "...",
+    "stripped_text_body": "Pakket komt morgen binnen",
+    "attachments_json": [],
+    "message_id": "<example@provider>",
+    "received_at": "2026-05-31T08:00:00.000Z"
+  }'
+```
+
+Hermes/ANNE consumption:
+
+- lees `GET /api/inbound-mail/unprocessed`
+- verwerk items
+- markeer ze via `POST /api/inbound-mail/:id/mark-processed`
+- of maak direct een taak via `POST /api/inbound-mail/:id/create-task`
 
 ---
 

@@ -21,6 +21,19 @@ function createQueryBuilder(state, table) {
         },
       }
     },
+    upsert(payload, options) {
+      state.lastUpsert = { table, payload, options }
+      return {
+        select() {
+          return {
+            single: async () => ({ data: Array.isArray(payload) ? payload[0] || null : payload, error: null }),
+            then(resolve, reject) {
+              return Promise.resolve({ data: Array.isArray(payload) ? payload : [payload], error: null }).then(resolve, reject)
+            },
+          }
+        },
+      }
+    },
     update(payload) {
       state.lastUpdate = { table, payload }
       return {
@@ -73,6 +86,14 @@ function createQueryBuilder(state, table) {
     order(column, options = {}) {
       operations.order.push({ column, options })
       return builder
+    },
+    limit(value) {
+      operations.limit = value
+      return builder
+    },
+    in(column, value) {
+      operations.filters.push({ type: 'in', column, value })
+      return Promise.resolve({ error: null })
     },
     single: async () => ({ data: state.single?.[table] || null, error: null }),
     maybeSingle: async () => ({ data: state.maybeSingle?.[table] || null, error: null }),
@@ -223,4 +244,87 @@ test('returns today briefing payload', async () => {
   } finally {
     global.Date = RealDate
   }
+})
+
+test('stores inbound mail with inbound secret', async () => {
+  const previousSecret = process.env.INBOUND_MAIL_SECRET
+  process.env.INBOUND_MAIL_SECRET = 'inbound-secret'
+  const { client, state } = createMockDb()
+  const app = createApp({ db: client })
+
+  try {
+    const res = await app.request('/api/inbound-mail', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer inbound-secret',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        source: 'forward-email',
+        subject: 'Test onderwerp',
+        stripped_text_body: 'Kort bericht',
+      }),
+    })
+
+    assert.equal(res.status, 201)
+    assert.equal(state.lastInsert.table, 'inbound_mail')
+    assert.equal(state.lastInsert.payload.source, 'forward-email')
+    assert.equal(state.lastInsert.payload.subject, 'Test onderwerp')
+    assert.equal(state.lastInsert.payload.processed, false)
+  } finally {
+    if (previousSecret === undefined) {
+      delete process.env.INBOUND_MAIL_SECRET
+    } else {
+      process.env.INBOUND_MAIL_SECRET = previousSecret
+    }
+  }
+})
+
+test('lists unprocessed inbound mail with API auth', async () => {
+  const { client } = createMockDb({
+    maybeSingle: { api_tokens: { id: 'token-id', label: 'test' } },
+    rows: { inbound_mail: [{ id: 'mail-1', subject: 'Test onderwerp', processed: false }] },
+  })
+  const app = createApp({ db: client })
+  const res = await app.request('/api/inbound-mail/unprocessed', {
+    headers: { authorization: 'Bearer test-token' },
+  })
+
+  assert.equal(res.status, 200)
+  assert.deepEqual(await res.json(), [{ id: 'mail-1', subject: 'Test onderwerp', processed: false }])
+})
+
+test('creates task from inbound mail', async () => {
+  const { client, state } = createMockDb({
+    maybeSingle: { api_tokens: { id: 'token-id', label: 'test' } },
+    single: {
+      inbound_mail: {
+        id: 'mail-1',
+        subject: 'Bel verzekeraar',
+        from_name: 'ANNE',
+        from_email: 'anne@bijanlab.nl',
+        original_from_name: 'Zorgverzekeraar',
+        original_from_email: 'service@example.com',
+        stripped_text_body: 'Er mist nog informatie',
+        received_at: '2026-05-31T09:00:00.000Z',
+        processed: false,
+      },
+    },
+  })
+  const app = createApp({ db: client })
+  const res = await app.request('/api/inbound-mail/mail-1/create-task', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer test-token',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ scheduled_date: '2026-06-02' }),
+  })
+
+  assert.equal(res.status, 201)
+  assert.equal(state.lastInsert.table, 'tasks')
+  assert.equal(state.lastInsert.payload.title, 'Bel verzekeraar')
+  assert.equal(state.lastInsert.payload.scheduled_date, '2026-06-02')
+  assert.equal(state.lastUpdate.table, 'inbound_mail')
+  assert.equal(state.lastUpdate.payload.processed, true)
 })
