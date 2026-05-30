@@ -8,6 +8,7 @@ Phase 1 adds a small in-repo API layer plus new database structures that can sup
 
 - People
 - Life events
+- Calendar sync
 - Areas
 - Personal knowledge
 - External integrations
@@ -22,6 +23,7 @@ The API lives under `api/` and runs separately from the Vite frontend.
 VITE_SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 PORT=8787
+CALDAV_ESTHER_SHARED_PASSWORD=
 ```
 
 Notes:
@@ -59,6 +61,7 @@ Tokens are stored hashed in `public.api_tokens`.
 Migration file:
 
 - `supabase/migrations/20260530_life_os_foundation.sql`
+- `supabase/migrations/20260530_calendar_sync_foundation.sql`
 
 ### Added tables
 
@@ -66,6 +69,8 @@ Migration file:
 - `people`
 - `life_events`
 - `life_event_people`
+- `calendar_sources`
+- `calendar_events`
 - `knowledge_entries`
 - `api_tokens`
 - `task_people`
@@ -80,6 +85,15 @@ Migration file:
 - JSON: `/api/openapi.json`
 - Swagger UI: `/api/docs`
 
+Calendar endpoints:
+
+- `GET /api/calendar/sources`
+- `GET /api/calendar/events`
+- `GET /api/calendar/upcoming`
+- `GET /api/calendar/today`
+- `POST /api/calendar/sync`
+- `GET /api/briefing/today`
+
 ## Deploy targets
 
 - Frontend: GitHub Pages
@@ -91,6 +105,7 @@ Tracked files for Pi deploy:
 - `deploy/pi/compose.yml`
 - `deploy/pi/api.env.example`
 - `docs/pi-deploy.md`
+- `docs/calendar-sync-foundation.md`
 
 ## Notes
 
@@ -98,3 +113,4 @@ Tracked files for Pi deploy:
 - Existing browser-to-Supabase flows stay in place.
 - The new API is the forward-looking integration surface for ANNE and other systems.
 - Birthdays are derived from `people.birthdate` in the moment feed instead of being managed twice.
+- Calendar sync is read-only and currently targets direct CalDAV/iCloud-compatible URLs.
