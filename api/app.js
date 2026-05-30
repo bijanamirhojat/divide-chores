@@ -1,5 +1,9 @@
 import { Hono } from 'hono'
 import { apiAuth } from './auth.js'
+import { buildTodayBriefing } from './briefing.js'
+import { syncCalendarSources } from './calendar/sync.js'
+import { listCalendarEvents, listCalendarSources } from './calendar/store.js'
+import { addDays, parseBoolean, parseInteger, startOfDay } from './calendar/utils.js'
 import { openApiDocument, renderSwaggerUi } from './openapi.js'
 import { jsonError, normalizeIntegerArray, normalizeTags, pickDefined } from './utils.js'
 
@@ -361,6 +365,86 @@ export function createApp({ db }) {
       .single()
     if (error) return jsonError(c, 500, 'Failed to create knowledge entry', error.message)
     return c.json(data, 201)
+  })
+
+  app.get('/api/calendar/sources', async (c) => {
+    const syncEnabled = c.req.query('sync_enabled')
+    const { data, error } = await listCalendarSources(c.get('db'), {
+      provider: c.req.query('provider') || undefined,
+      syncEnabled: syncEnabled === undefined ? undefined : parseBoolean(syncEnabled),
+    })
+    if (error) return jsonError(c, 500, 'Failed to load calendar sources', error.message)
+    return c.json(data)
+  })
+
+  app.get('/api/calendar/events', async (c) => {
+    const start = c.req.query('start')
+    const end = c.req.query('end')
+    const { data, error } = await listCalendarEvents(c.get('db'), {
+      provider: c.req.query('provider') || undefined,
+      sourceId: c.req.query('source_id') || undefined,
+      includeDeleted: parseBoolean(c.req.query('include_deleted'), false),
+      startAt: start ? `${start}T00:00:00.000Z` : undefined,
+      endAt: end ? `${end}T23:59:59.999Z` : undefined,
+      startDate: start || undefined,
+      endDate: end || undefined,
+    })
+    if (error) return jsonError(c, 500, 'Failed to load calendar events', error.message)
+    return c.json(data)
+  })
+
+  app.get('/api/calendar/upcoming', async (c) => {
+    const days = parseInteger(c.req.query('days'), 7)
+    const limit = parseInteger(c.req.query('limit'), 20)
+    const today = startOfDay(new Date())
+    const start = toDateString(today)
+    const end = toDateString(addDays(today, days))
+    const { data, error } = await listCalendarEvents(c.get('db'), {
+      provider: c.req.query('provider') || undefined,
+      sourceId: c.req.query('source_id') || undefined,
+      startAt: `${start}T00:00:00.000Z`,
+      endAt: `${end}T23:59:59.999Z`,
+      startDate: start,
+      endDate: end,
+    })
+    if (error) return jsonError(c, 500, 'Failed to load upcoming calendar events', error.message)
+    return c.json((data || []).slice(0, limit))
+  })
+
+  app.get('/api/calendar/today', async (c) => {
+    const today = toDateString(startOfDay(new Date()))
+    const { data, error } = await listCalendarEvents(c.get('db'), {
+      provider: c.req.query('provider') || undefined,
+      sourceId: c.req.query('source_id') || undefined,
+      startAt: `${today}T00:00:00.000Z`,
+      endAt: `${today}T23:59:59.999Z`,
+      startDate: today,
+      endDate: today,
+    })
+    if (error) return jsonError(c, 500, 'Failed to load today calendar events', error.message)
+    return c.json(data)
+  })
+
+  app.post('/api/calendar/sync', async (c) => {
+    const body = await c.req.json().catch(() => ({}))
+    try {
+      const result = await syncCalendarSources(c.get('db'), {
+        sourceId: body.source_id ?? null,
+        provider: body.provider ?? null,
+      })
+      return c.json(result)
+    } catch (error) {
+      return jsonError(c, 500, 'Calendar sync failed', error.message)
+    }
+  })
+
+  app.get('/api/briefing/today', async (c) => {
+    try {
+      const briefing = await buildTodayBriefing(c.get('db'))
+      return c.json(briefing)
+    } catch (error) {
+      return jsonError(c, 500, 'Failed to build briefing', error.message)
+    }
   })
 
   app.notFound((c) => jsonError(c, 404, 'Not found'))

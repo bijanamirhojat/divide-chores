@@ -172,3 +172,55 @@ test('life events include derived birthdays from people', async () => {
   assert.equal(body.length, 2)
   assert.equal(body.some((item) => item.derived_from === 'people.birthdate' && item.event_type === 'birthday'), true)
 })
+
+test('lists calendar events with auth', async () => {
+  const { client } = createMockDb({
+    maybeSingle: { api_tokens: { id: 'token-id', label: 'test' } },
+    rows: { calendar_events: [{ id: 'calendar-1', title: 'School', all_day: true, start_date: '2026-06-01', end_date: '2026-06-01' }] },
+  })
+  const app = createApp({ db: client })
+  const res = await app.request('/api/calendar/events', {
+    headers: { authorization: 'Bearer test-token' },
+  })
+
+  assert.equal(res.status, 200)
+  assert.deepEqual(await res.json(), [{ id: 'calendar-1', title: 'School', all_day: true, start_date: '2026-06-01', end_date: '2026-06-01' }])
+})
+
+test('returns today briefing payload', async () => {
+  const { client } = createMockDb({
+    maybeSingle: { api_tokens: { id: 'token-id', label: 'test' } },
+    rows: {
+      calendar_events: [{ id: 'calendar-1', title: 'School', all_day: true, start_date: '2026-05-30', end_date: '2026-05-30', is_deleted: false }],
+      tasks: [{ id: 'task-1', title: 'Vacuum', scheduled_date: '2026-05-30', recurrence: null }],
+      completed_tasks: [],
+      life_events: [{ id: 'event-1', title: 'APK', event_date: '2026-06-01' }],
+    },
+  })
+  const app = createApp({ db: client })
+  const RealDate = Date
+  global.Date = class extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) return new RealDate('2026-05-30T09:00:00.000Z')
+      return new RealDate(...args)
+    }
+    static now() {
+      return new RealDate('2026-05-30T09:00:00.000Z').getTime()
+    }
+  }
+
+  try {
+    const res = await app.request('/api/briefing/today', {
+      headers: { authorization: 'Bearer test-token' },
+    })
+
+    assert.equal(res.status, 200)
+    const body = await res.json()
+    assert.equal(body.date, '2026-05-30')
+    assert.equal(body.calendar.today.length, 1)
+    assert.equal(body.tasks.open.length, 1)
+    assert.equal(body.life_events.upcoming.length, 1)
+  } finally {
+    global.Date = RealDate
+  }
+})

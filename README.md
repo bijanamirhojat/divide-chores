@@ -37,6 +37,12 @@ Belangrijke endpoints:
 - `GET|POST|PATCH|DELETE /api/tasks`
 - `GET|POST|PATCH /api/people`
 - `GET|POST|PATCH /api/life-events`
+- `GET /api/calendar/sources`
+- `GET /api/calendar/events`
+- `GET /api/calendar/upcoming`
+- `GET /api/calendar/today`
+- `POST /api/calendar/sync`
+- `GET /api/briefing/today`
 - `GET|POST /api/areas`
 - `GET|POST /api/knowledge`
 - `GET /api/openapi.json`
@@ -46,6 +52,7 @@ Lokale API env:
 
 - `VITE_SUPABASE_URL` kan uit de bestaande `.env` komen
 - `SUPABASE_SERVICE_ROLE_KEY` moet aanwezig zijn voor de API
+- kalender secrets blijven in env, bijvoorbeeld `CALDAV_ESTHER_SHARED_PASSWORD`
 
 Deploy model:
 
@@ -57,6 +64,12 @@ Token genereren:
 
 ```bash
 npm run api:token -- --label anne-local
+```
+
+Calendar sync handmatig draaien:
+
+```bash
+npm run calendar:sync
 ```
 
 ---
@@ -191,6 +204,7 @@ Belangrijke files:
 - `deploy/pi/compose.yml`
 - `deploy/pi/api.env.example`
 - `docs/pi-deploy.md`
+- `docs/calendar-sync-foundation.md`
 
 Kort stappenplan:
 
@@ -208,6 +222,36 @@ LIFE_OS_API_TOKEN=<api-token>
 ```
 
 Gebruik niet de `SUPABASE_SERVICE_ROLE_KEY` in Hermes.
+
+## Calendar Sync Foundation
+
+Divide kan nu externe agenda-events cachen en via de API ontsluiten.
+
+MVP-opzet:
+
+- directe CalDAV calendar URL
+- iCloud-compatible met app-specific password
+- publieke `webcal://` iCloud calendar feeds werken ook
+- read-only sync
+- agenda-items zichtbaar in de bestaande week/dag UI
+
+Belangrijke tabellen:
+
+- `calendar_sources`
+- `calendar_events`
+
+Belangrijke env/config pattern:
+
+- bewaar het echte wachtwoord in env
+- zet in `calendar_sources.secret_name` alleen de naam van die secret
+
+Voorbeeld:
+
+```bash
+CALDAV_ESTHER_SHARED_PASSWORD=
+```
+
+Meer details staan in `docs/calendar-sync-foundation.md`.
 
 ---
 

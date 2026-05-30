@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import CalendarEventItem from './CalendarEventItem'
 import TaskItem from './TaskItem'
 import TaskModal from './TaskModal'
 
@@ -10,6 +11,7 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
   const [tasks, setTasks] = useState([])
   const [completedTasks, setCompletedTasks] = useState(null)  // Start with null, not []
   const [meals, setMeals] = useState([])
+  const [calendarEvents, setCalendarEvents] = useState([])
   const [selectedDay, setSelectedDay] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [editTask, setEditTask] = useState(null)
@@ -175,6 +177,7 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
   useEffect(() => {
     loadTasks()
     loadMeals()
+    loadCalendarEvents()
     loadCompletedTasks()
 
     function handleVisibilityChange() {
@@ -182,6 +185,7 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
         loadTasks()
         loadCompletedTasks()
         loadMeals()
+        loadCalendarEvents()
       }
     }
 
@@ -214,6 +218,26 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
       .order('created_at', { ascending: false })
     
     if (data) setTasks(data)
+  }
+
+  async function loadCalendarEvents() {
+    const weekDates = getWeekDates(selectedWeekOffset)
+    const startDate = toDateStr(weekDates[0])
+    const endDate = toDateStr(weekDates[6])
+
+    const { data } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .eq('is_deleted', false)
+      .order('start_at', { ascending: true })
+      .order('start_date', { ascending: true })
+
+    if (!data) {
+      setCalendarEvents([])
+      return
+    }
+
+    setCalendarEvents(data.filter((event) => isCalendarEventInRange(event, startDate, endDate)))
   }
 
   async function loadCompletedTasks() {
@@ -374,6 +398,32 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
     return meals.filter(meal => meal.scheduled_date === dateStr)
   }
 
+  function getCalendarEventsForDay(dayIndex) {
+    const dayDate = weekDates[dayIndex]
+    const dateStr = toDateStr(dayDate)
+    return calendarEvents.filter((event) => isCalendarEventOnDate(event, dateStr))
+  }
+
+  function isCalendarEventInRange(event, startDate, endDate) {
+    const eventStart = event.all_day ? event.start_date : toDateStr(new Date(event.start_at))
+    const eventEnd = event.all_day
+      ? (event.end_date || event.start_date)
+      : toDateStr(new Date(event.end_at || event.start_at))
+
+    if (!eventStart) return false
+    return eventEnd >= startDate && eventStart <= endDate
+  }
+
+  function isCalendarEventOnDate(event, dateStr) {
+    const eventStart = event.all_day ? event.start_date : toDateStr(new Date(event.start_at))
+    const eventEnd = event.all_day
+      ? (event.end_date || event.start_date)
+      : toDateStr(new Date(event.end_at || event.start_at))
+
+    if (!eventStart) return false
+    return eventStart <= dateStr && dateStr <= eventEnd
+  }
+
   async function addMeal(scheduledDate, mealName, mealType, notes) {
     const { error } = await supabase
       .from('meals')
@@ -461,8 +511,9 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
           {DAYS.map((day, i) => {
             const dayTasks = getTasksForDay(i)
             const dayMeals = getMealsForDay(i)
+            const dayCalendarEvents = getCalendarEventsForDay(i)
             const isToday = i === currentDayIndex && selectedWeekOffset === 0
-            const hasItems = dayTasks.length > 0 || dayMeals.length > 0
+            const hasItems = dayTasks.length > 0 || dayMeals.length > 0 || dayCalendarEvents.length > 0
 
             return (
               <div key={i} className="flex-1 flex flex-col min-w-0 bg-white/60 rounded-2xl">
@@ -496,6 +547,9 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                       </svg>
                     </button>
+                  ))}
+                  {dayCalendarEvents.map((event) => (
+                    <CalendarEventItem key={event.id} event={event} compact />
                   ))}
                   {dayTasks.map(task => (
                     <TaskItem
@@ -579,6 +633,9 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
                   </svg>
                 </button>
               ))}
+              {getCalendarEventsForDay(activeDay).map((event) => (
+                <CalendarEventItem key={event.id} event={event} compact />
+              ))}
               {getTasksForDay(activeDay).map(task => (
                 <TaskItem
                   key={task.id}
@@ -595,7 +652,7 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
                   presentationMode={true}
                 />
               ))}
-              {(getTasksForDay(activeDay).length === 0 && getMealsForDay(activeDay).length === 0) && (
+              {(getTasksForDay(activeDay).length === 0 && getMealsForDay(activeDay).length === 0 && getCalendarEventsForDay(activeDay).length === 0) && (
                 <div className="text-center text-gray-400 py-8">
                   Geen taken
                 </div>
@@ -739,7 +796,7 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
                   const isActive = isSelectedWeek && dayIdx === activeDay
                   const isToday = dayIdx === currentDayIndex && week.offset === 0
                   const dayTasks = isSelectedWeek ? getTasksForDay(dayIdx) : []
-                  const hasTasks = dayTasks.length > 0
+                  const hasTasks = dayTasks.length > 0 || (isSelectedWeek ? getCalendarEventsForDay(dayIdx).length > 0 : false)
 
                   return (
                     <button
@@ -823,6 +880,16 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
             </div>
           </div>
         )}
+
+        {getCalendarEventsForDay(activeDay).length > 0 && (
+          <div className="mb-6">
+            <div className="space-y-2">
+              {getCalendarEventsForDay(activeDay).map((event) => (
+                <CalendarEventItem key={event.id} event={event} />
+              ))}
+            </div>
+          </div>
+        )}
         
         <div>
           {getTasksForDay(activeDay).map(task => (
@@ -844,7 +911,7 @@ export default function WeekView({ currentUser, users, onComplete, refreshKey, p
               resetKey={resetKey}
             />
           ))}
-          {getTasksForDay(activeDay).length === 0 && (
+          {getTasksForDay(activeDay).length === 0 && getCalendarEventsForDay(activeDay).length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-pastel-lavender/50 rounded-2xl mx-auto mb-4 flex items-center justify-center">
                 <svg className="w-8 h-8 text-pastel-lavenderDark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
