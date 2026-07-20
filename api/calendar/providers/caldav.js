@@ -31,10 +31,14 @@ function normalizeAttendees(attendees) {
 
 function formatDateOnlyValue(value) {
   if (!value) return null
-  const offsetValue = value.dateOnly === true ? addDays(value, 1) : value
-  const year = offsetValue.getUTCFullYear()
-  const month = String(offsetValue.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(offsetValue.getUTCDate()).padStart(2, '0')
+  // node-ical maakt date-only (all-day) waardes aan op LOKALE middernacht van de
+  // bedoelde kalenderdag. Lees de datum daarom uit met lokale getters: dat geeft
+  // exact de ICS-datum terug, ongeacht de timezone van de server. (Met getUTC* of
+  // een +1-dag-correctie klopt het maar op één specifieke server-timezone en staat
+  // het op andere timezones een dag verkeerd.)
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 

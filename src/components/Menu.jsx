@@ -242,17 +242,20 @@ export default function Menu({ show, onClose, onLogout, currentUser, presentatio
       bg: 'bg-pastel-rose/30',
       iconBg: 'bg-pastel-rose',
     },
-    {
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3l7.5 4.5v9L12 21l-7.5-4.5v-9L12 3zm0 0v18m7.5-13.5L12 12 4.5 7.5" />
-        </svg>
-      ),
-      label: 'Life OS',
-      onClick: onOpenLifeOS,
-      bg: 'bg-pastel-lavender/30',
-      iconBg: 'bg-pastel-lavender',
-    },
+    // Life OS staat indefinitely on hold — tijdelijk verborgen uit het menu.
+    // Component + routing blijven intact (zie App.jsx / LifeOS.jsx) zodat dit
+    // eenvoudig terug te zetten is door dit blok te un-commenten.
+    // {
+    //   icon: (
+    //     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3l7.5 4.5v9L12 21l-7.5-4.5v-9L12 3zm0 0v18m7.5-13.5L12 12 4.5 7.5" />
+    //     </svg>
+    //   ),
+    //   label: 'Life OS',
+    //   onClick: onOpenLifeOS,
+    //   bg: 'bg-pastel-lavender/30',
+    //   iconBg: 'bg-pastel-lavender',
+    // },
     {
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
