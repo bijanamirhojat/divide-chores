@@ -19,27 +19,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-
-  # Periodieke calendar sync. Draait alleen scripts/calendar/sync.js tegen
-  # Supabase en heeft de Life OS API dus NIET nodig. Bij start meteen één sync,
-  # daarna elke CALENDAR_SYNC_INTERVAL seconden (default 3600 = 1 uur).
-  # Draai alleen deze service met: docker compose -f deploy/pi/compose.yml up -d calendar-sync
-  calendar-sync:
-    build:
-      context: ../..
-      dockerfile: Dockerfile.api
-    container_name: calendar-sync
-    restart: unless-stopped
-    env_file:
-      - ./api.env
-    # $$ zodat de container-shell de variabele invult, niet docker compose zelf.
-    command:
-      - sh
-      - -c
-      - |
-        echo "[calendar-sync] gestart, interval=$${CALENDAR_SYNC_INTERVAL:-3600}s"
-        while true; do
-          echo "[calendar-sync] $$(date -u +%FT%TZ) sync..."
-          node scripts/calendar/sync.js || echo "[calendar-sync] sync mislukt, opnieuw volgende interval"
-          sleep "$${CALENDAR_SYNC_INTERVAL:-3600}"
-        done

@@ -1,0 +1,36 @@
+name: Calendar Sync
+
+# Haalt de externe agenda (iCloud/CalDAV) op en schrijft de events naar Supabase.
+# Draait los van de (on-hold) Life OS API op de Pi — de Pi is hier niet voor nodig.
+on:
+  schedule:
+    - cron: '0 * * * *' # elk uur (let op: GitHub Actions cron is in UTC)
+  workflow_dispatch: {} # handmatig triggeren via de Actions-tab
+
+# Voorkom dat twee syncs tegelijk lopen als er een uitloopt.
+concurrency:
+  group: calendar-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Run calendar sync
+        run: npm run calendar:sync
+        env:
+          # config.js valt terug op VITE_SUPABASE_URL, dus het bestaande
+          # repo-secret werkt. Alleen SUPABASE_SERVICE_ROLE_KEY is nieuw.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

@@ -6,7 +6,6 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY api ./api
-COPY scripts ./scripts
 
 ENV PORT=8787
 EXPOSE 8787

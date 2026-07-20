@@ -83,38 +83,11 @@ Important domain rule:
 
 - birthdays are derived from `people.birthdate` through `GET /api/life-events`
 
-## 5. Automatic calendar sync
+> **Note:** the calendar sync no longer runs on the Pi. It runs as a scheduled
+> GitHub Actions workflow (`.github/workflows/calendar-sync.yml`), independent of
+> this (on-hold) Life OS API. See that workflow for details.
 
-The `calendar-sync` service in `deploy/pi/compose.yml` runs the calendar sync
-automatically. It only runs `scripts/calendar/sync.js` against Supabase, so it
-does **not** need the (on-hold) Life OS API to be running.
-
-It syncs once on start, then every `CALENDAR_SYNC_INTERVAL` seconds
-(default `3600` = 1 hour). Set the interval in `deploy/pi/api.env`:
-
-```bash
-CALENDAR_SYNC_INTERVAL=3600
-```
-
-Run only the sync (without the Life OS API):
-
-```bash
-docker compose -f deploy/pi/compose.yml up -d --build calendar-sync
-```
-
-Force a sync right now / check it works:
-
-```bash
-docker compose -f deploy/pi/compose.yml run --rm calendar-sync node scripts/calendar/sync.js
-```
-
-Follow the sync logs:
-
-```bash
-docker compose -f deploy/pi/compose.yml logs -f calendar-sync
-```
-
-## 6. Update the container later
+## 5. Update the container later
 
 From the repo root on the Pi:
 
